@@ -28,9 +28,9 @@ contract NFTFeedTest is DSTest {
         // default values
         uint thresholdRatio = 8*10**26;                     // 80% threshold
         uint ceilingRatio = 6*10**26;                       // 60% ceiling
-        uint lowRate = uint(1000000564701133626865910626);  // 5 % day
+        uint rate = uint(1000000564701133626865910626);     // 5 % day
 
-        nftFeed = new NFTFeed();
+        nftFeed = new NFTFeed(thresholdRatio, ceilingRatio, rate);
 
 
     }

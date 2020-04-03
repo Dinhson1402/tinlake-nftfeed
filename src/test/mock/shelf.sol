@@ -4,9 +4,7 @@ import "./mock.sol";
 
 contract ShelfMock is Mock {
 
-    function shelf(uint loan) public returns (address, uint)  {
-        values_uint["shelf_loan"] = loan;
-        calls["shelf"]++;
+    function shelf(uint) public view returns (address, uint)  {
         return (values_address_return["shelf"], values_return["shelf"]);
     }
 
@@ -21,6 +19,10 @@ contract ShelfMock is Mock {
         values_address["recover_usr"] = usr;
         values_uint["recover_currencyAmount"] = currencyAmount;
         calls["recover"]++;
+    }
+    function nftlookup(bytes32 nftID) public returns (uint loan) {
+        values_bytes32[nftID] = nftID;
+        return values_return["nftlookup"];
     }
 
     function lock(uint loan, address usr) public {

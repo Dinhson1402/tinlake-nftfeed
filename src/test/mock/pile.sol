@@ -31,6 +31,10 @@ contract PileMock is Mock {
         return call("debt");
     }
 
+    function pie(uint) public returns(uint) {
+        return call("pie");
+    }
+
     function incDebt(uint loan, uint currencyAmount) public {
         values_uint["incDebt_loan"] = loan;
         values_uint["incDebt_currencyAmount"] = currencyAmount;

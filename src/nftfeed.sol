@@ -51,6 +51,7 @@ contract NFTFeed is DSNote, Auth, Math {
     /// defines default values for risk group 0
     /// all values are denominated in RAY (10^27)
     constructor (uint defaultThresholdRatio, uint defaultCeilingRatio, uint defaultRate) public {
+        wards[msg.sender] = 1;
         thresholdRatio[0] = defaultThresholdRatio;
         ceilingRatio[0] = defaultCeilingRatio;
         rate[0] = defaultRate;

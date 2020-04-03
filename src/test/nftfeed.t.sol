@@ -84,7 +84,82 @@ contract NFTFeedTest is DSTest {
         assertEq(nftFeed.threshold(loan), 70 ether);
         assertEq(nftFeed.ceiling(loan), 50 ether);
         assertEq(nftFeed.loanRate(loan), rate);
+
+        // set back to default
+        uint defaultRisk = 0;
+        value = 1000 ether;
+        nftFeed.update(nftID, value, defaultRisk);
+        assertEq(nftFeed.nftValues(nftID), 1000 ether);
+        assertEq(nftFeed.threshold(loan), 800 ether);
+        assertEq(nftFeed.ceiling(loan), 600 ether);
+        assertEq(nftFeed.loanRate(loan), defaultRate);
     }
 
+    function singleSetRiskGroup() public {
+        uint risk = 3;
+        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
+        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
+        nftFeed.file("rate", risk, defaultRate);
+
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+
+        // should fail, not every value for risk group 3 set
+        nftFeed.update(nftID, 100 ether, risk);
+    }
+
+    function testFailRiskGroup1() public {
+        uint risk = 3;
+        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
+        nftFeed.file("rate", risk, defaultRate);
+
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+
+        // should fail, not every value for risk group 3 set
+        nftFeed.update(nftID, 100 ether, risk);
+    }
+
+    function testFailRiskGroup2() public {
+        uint risk = 3;
+        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
+        nftFeed.file("rate", risk, defaultRate);
+
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+
+        // should fail, not every value for risk group 3 set
+        nftFeed.update(nftID, 100 ether, risk);
+    }
+
+    function testFailRiskGroup3() public {
+        uint risk = 3;
+        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
+        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
+
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+
+        // should fail, not every value for risk group 3 set
+        nftFeed.update(nftID, 100 ether, risk);
+    }
+
+    function testChangeRate() public {
+        // risk group
+        uint risk = 1;
+        uint thresholdRatio = 7*10**26;                     // 70% threshold
+        uint ceilingRatio = 5*10**26;                       // 50% ceiling
+        uint rate = uint(1000001311675458706187136988);     // 12 % day
+
+        nftFeed.setRiskGroup(1, thresholdRatio, ceilingRatio, rate);
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+
+        // simulate ongoing loan
+        uint loan = 2;
+        pile.setReturn("pie", 123);
+        shelf.setReturn("nftlookup", loan);
+
+        // should fail, not every value for risk group 3 set
+        nftFeed.update(nftID, 100 ether, risk);
+
+        assertEq(pile.values_uint("changeRate_loan"), loan);
+        assertEq(pile.values_uint("changeRate_rate"), rate);
+    }
 
 }

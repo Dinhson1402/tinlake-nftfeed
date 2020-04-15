@@ -25,7 +25,7 @@ import "./mock/pile.sol";
 
 contract NFTFeedTest is DSTest {
 
-    NFTFeed public nftFeed;
+    BaseNFTFeed public nftFeed;
     ShelfMock shelf;
     PileMock pile;
 
@@ -40,7 +40,7 @@ contract NFTFeedTest is DSTest {
         defaultCeilingRatio = 6*10**26;                       // 60% ceiling
         defaultRate = uint(1000000564701133626865910626);     // 5 % day
 
-        nftFeed = new NFTFeed(defaultThresholdRatio, defaultCeilingRatio, defaultRate);
+        nftFeed = new BaseNFTFeed(defaultThresholdRatio, defaultCeilingRatio, defaultRate);
         pile = new PileMock();
         shelf = new ShelfMock();
 

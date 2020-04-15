@@ -17,7 +17,7 @@ pragma solidity >=0.5.15;
 
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
-import "tinlake-math/math.sol";
+import "tinlake-math/interest.sol";
 
 contract ShelfLike {
     function shelf(uint loan) public view returns (address registry, uint tokenId);
@@ -31,7 +31,7 @@ contract PileLike {
     function changeRate(uint loan, uint newRate) public;
 }
 
-contract NFTFeed is DSNote, Auth, Math {
+contract BaseNFTFeed is DSNote, Auth, Interest {
     // nftID => nftValues
     mapping (bytes32 => uint) public nftValues;
 

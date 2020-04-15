@@ -81,13 +81,6 @@ contract NFTFeed is DSNote, Auth, Math {
         rate[risk_]= rate_;
     }
 
-    function file(bytes32 what, uint risk_, uint value_) public auth {
-        if (what == "threshold") { thresholdRatio[risk_]  = value_; }
-        else if (what == "ceiling") { ceilingRatio[risk_] = value_; }
-        else if (what == "rate") { rate[risk_]= value_;}
-        else revert("unknown parameter");
-    }
-
     ///  -- Oracle Updates --
 
     /// update the nft value
@@ -98,8 +91,6 @@ contract NFTFeed is DSNote, Auth, Math {
     /// update the nft value and change the risk group
     function update(bytes32 nftID_, uint value, uint risk_) public auth {
         require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
-        require(ceilingRatio[risk_] != 0, "ceiling for risk group not defined");
-        require(rate[risk_] != 0, "rate for risk group not defined");
 
         // change to new rate in pile if loan is ongoing
         uint loan = shelf.nftlookup(nftID_);

@@ -95,51 +95,6 @@ contract NFTFeedTest is DSTest {
         assertEq(nftFeed.loanRate(loan), defaultRate);
     }
 
-    function singleSetRiskGroup() public {
-        uint risk = 3;
-        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
-        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
-        nftFeed.file("rate", risk, defaultRate);
-
-        bytes32 nftID = nftFeed.nftID(address(1), 1);
-
-        // should fail, not every value for risk group 3 set
-        nftFeed.update(nftID, 100 ether, risk);
-    }
-
-    function testFailRiskGroup1() public {
-        uint risk = 3;
-        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
-        nftFeed.file("rate", risk, defaultRate);
-
-        bytes32 nftID = nftFeed.nftID(address(1), 1);
-
-        // should fail, not every value for risk group 3 set
-        nftFeed.update(nftID, 100 ether, risk);
-    }
-
-    function testFailRiskGroup2() public {
-        uint risk = 3;
-        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
-        nftFeed.file("rate", risk, defaultRate);
-
-        bytes32 nftID = nftFeed.nftID(address(1), 1);
-
-        // should fail, not every value for risk group 3 set
-        nftFeed.update(nftID, 100 ether, risk);
-    }
-
-    function testFailRiskGroup3() public {
-        uint risk = 3;
-        nftFeed.file("ceiling" ,risk, defaultCeilingRatio);
-        nftFeed.file("threshold" ,risk, defaultThresholdRatio);
-
-        bytes32 nftID = nftFeed.nftID(address(1), 1);
-
-        // should fail, not every value for risk group 3 set
-        nftFeed.update(nftID, 100 ether, risk);
-    }
-
     function testChangeRate() public {
         // risk group
         uint risk = 1;

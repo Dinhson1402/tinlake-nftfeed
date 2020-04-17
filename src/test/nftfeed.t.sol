@@ -22,7 +22,6 @@ import "./mock/shelf.sol";
 import "./mock/pile.sol";
 
 
-
 contract NFTFeedTest is DSTest {
 
     BaseNFTFeed public nftFeed;

@@ -29,6 +29,7 @@ contract PileLike {
     function debt(uint loan) public returns (uint);
     function pie(uint loan) public returns (uint);
     function changeRate(uint loan, uint newRate) public;
+    function loanRates(uint loan) public returns (uint);
 }
 
 contract BaseNFTFeed is DSNote, Auth, Interest {
@@ -103,9 +104,32 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
 
     }
 
+    // LineOf Credit interface
+    function borrow(uint loan, uint amount) external auth {
+        // ceiling check uses existing loan debt
+        require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
+
+    }
+
+    function repay(uint loan, uint amount) external auth {}
+
+    function borrowEvent(uint loan) public {
+        uint rate_ = loanRate(loan);
+        // condition is only true if there is no outstanding debt
+        // if the rate has been changed with the update method
+        // the pile rate is already up to date
+        if(pile.loanRates(loan) != rate_) {
+            pile.setRate(loan, rate_);
+        }
+    }
+
+    function unlockEvent(uint loan) public {
+
+    }
+
     // sets the loan rate in pile
     // not possible for ongoing loans
-    function setPileRate(uint loan) external auth {
+    function setPileRate(uint loan) public auth {
         pile.setRate(loan, loanRate(loan));
     }
 

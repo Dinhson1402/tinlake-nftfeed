@@ -12,14 +12,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity >=0.5.15;
+
 import "ds-test/test.sol";
 import "./../feed.sol";
 import "./mock/shelf.sol";
 import "./mock/pile.sol";
+
 contract Hevm {
     function warp(uint256) public;
 }
+
 contract NAVTest is DSTest {
+
     Feed public feed;
     ShelfMock shelf;
     PileMock pile;
@@ -28,6 +32,7 @@ contract NAVTest is DSTest {
     uint defaultCeilingRatio;
     uint discountRate;
     Hevm hevm;
+
     function setUp() public {
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         hevm.warp(1234567);
@@ -38,6 +43,7 @@ contract NAVTest is DSTest {
         discountRate = uint(1000000342100000000000000000);    // 3 % day
         uint maxDays = 10 days;
         uint defaultRisk = 0;
+
         feed = new Feed(discountRate, maxDays);
         pile = new PileMock();
         shelf = new ShelfMock();
@@ -45,6 +51,7 @@ contract NAVTest is DSTest {
         feed.depend("pile", address(pile));
         feed.setRiskGroup(defaultRisk, defaultThresholdRatio, defaultCeilingRatio, defaultRate);
     }
+
     function prepareDefaultNFT(uint nftValue) public returns(bytes32, uint) {
         bytes32 nftID = feed.nftID(address(1), 1);
         feed.update(nftID, nftValue);
@@ -54,6 +61,7 @@ contract NAVTest is DSTest {
         pile.setReturn("rates_ratePerSecond", defaultRate);
         return (nftID, loan);
     }
+
     function testSimpleBorrow() public {
         uint value = 100 ether;
         (bytes32 nftID, uint loan) = prepareDefaultNFT(value);
@@ -76,11 +84,14 @@ contract NAVTest is DSTest {
         // FV/(1.03^0)
         assertEq(feed.nav(), 55.125 ether);
     }
+
     function testNormalizeDate() public {
         uint randomUnixTimestamp = 1586977096; // 04/15/2020 @ 6:58pm (UTC)
         uint dayTimestamp = feed.uniqueDayTimestamp(randomUnixTimestamp);
+
         assertTrue(feed.uniqueDayTimestamp(randomUnixTimestamp) != randomUnixTimestamp);
         uint delta = randomUnixTimestamp - dayTimestamp;
+
         assertTrue(delta < 24*60*60);
         randomUnixTimestamp += 3 hours;
         assertTrue(feed.uniqueDayTimestamp(randomUnixTimestamp) == dayTimestamp);

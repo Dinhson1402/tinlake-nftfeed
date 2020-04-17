@@ -12,16 +12,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity >=0.5.15;
+
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
 import "tinlake-math/math.sol";
 import "ds-test/test.sol";
 import "./nftfeed.sol";
+
 contract Feed is BaseNFTFeed, DSTest {
     // dueDate => FV
     mapping (uint => uint) public futureValueAtDate;
     // nftID => dueDate
     mapping (bytes32 => uint) public dueDate;
+
+
     uint public discountRate;
     uint public maxDays;
 

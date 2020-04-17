@@ -24,20 +24,24 @@ contract Feed is BaseNFTFeed, DSTest {
     mapping (bytes32 => uint) public dueDate;
     uint public discountRate;
     uint public maxDays;
+
+    constructor (uint discountRate_, uint maxDays_) public {
+        discountRate = discountRate_;
+        maxDays = maxDays_;
+    }
+
     function uniqueDayTimestamp(uint timestamp) public pure returns (uint) {
         return (1 days) * (timestamp/(1 days));
     }
+
     /// dueDate is timestamp
     function file(bytes32 what, bytes32 nftID_, uint dueDate_) public {
         if (what == "duedate") {
             dueDate[nftID_] = uniqueDayTimestamp(dueDate_);
         } else { revert("unknown config parameter");}
     }
-    constructor (uint discountRate_, uint maxDays_) public {
-        discountRate = discountRate_;
-        maxDays = maxDays_;
-    }
-    // Ceiling Implementation
+
+    /// Ceiling Implementation
     function borrow(uint loan, uint amount) external auth {
         uint normalizedDay = uniqueDayTimestamp(now);
 
@@ -50,6 +54,7 @@ contract Feed is BaseNFTFeed, DSTest {
 
     function repay(uint loan, uint amount) external auth {}
 
+    /// returns the NAV (net asset value) of the pool
     function nav() public view returns(uint) {
         uint normalizedDay = uniqueDayTimestamp(now);
         uint sum = 0;

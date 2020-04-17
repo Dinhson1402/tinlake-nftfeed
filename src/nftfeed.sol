@@ -30,34 +30,26 @@ contract PileLike {
     function pie(uint loan) public returns (uint);
     function changeRate(uint loan, uint newRate) public;
     function loanRates(uint loan) public returns (uint);
+    function file(bytes32, uint, uint) public;
+    function rates(uint rate) public view returns(uint, uint, uint ,uint48);
 }
 
 contract BaseNFTFeed is DSNote, Auth, Interest {
     // nftID => nftValues
     mapping (bytes32 => uint) public nftValues;
-
     // nftID => risk
     mapping (bytes32 => uint) public risk;
-
     // risk => thresholdRatio
     mapping (uint => uint) public thresholdRatio;
     // risk => ceilingRatio
     mapping (uint => uint) public ceilingRatio;
-    // risk => rate
-    mapping (uint => uint) public rate;
 
     PileLike pile;
     ShelfLike shelf;
 
-    /// defines default values for risk group 0
-    /// all values are denominated in RAY (10^27)
-    constructor (uint defaultThresholdRatio, uint defaultCeilingRatio, uint defaultRate) public {
+    constructor () public {
         wards[msg.sender] = 1;
-        thresholdRatio[0] = defaultThresholdRatio;
-        ceilingRatio[0] = defaultCeilingRatio;
-        rate[0] = defaultRate;
     }
-
 
     /// sets the dependency to another contract
     function depend(bytes32 contractName, address addr) external auth {
@@ -66,6 +58,9 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
         else revert();
     }
 
+    /// returns a unique id based on registry and tokenId
+    /// the nftID allows to define a risk group and an nft value
+    /// before a loan is issued
     function nftID(address registry, uint tokenId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(registry, tokenId));
     }
@@ -79,7 +74,8 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     function setRiskGroup(uint risk_, uint thresholdRatio_, uint ceilingRatio_, uint rate_) public auth {
         thresholdRatio[risk_] = thresholdRatio_;
         ceilingRatio[risk_] = ceilingRatio_;
-        rate[risk_]= rate_;
+        // the risk group is used as a rate id in the pile
+        pile.file("rate", risk_, rate_);
     }
 
     ///  -- Oracle Updates --
@@ -93,60 +89,60 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     function update(bytes32 nftID_, uint value, uint risk_) public auth {
         require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
 
-        // change to new rate in pile if loan is ongoing
+        // change to new rate immediately in pile if a loan debt exists
         uint loan = shelf.nftlookup(nftID_);
         if (pile.pie(loan) != 0) {
-            pile.changeRate(loan, rate[risk_]);
+            pile.changeRate(loan, risk_);
         }
 
         risk[nftID_] = risk_;
         nftValues[nftID_] = value;
-
     }
 
-    // LineOf Credit interface
+    // method is called by the pile to check the ceiling
     function borrow(uint loan, uint amount) external auth {
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
-
     }
 
+    // method is called by the pile to check the ceiling
     function repay(uint loan, uint amount) external auth {}
 
     // borrowEvent is called by the shelf in the borrow method
-    function borrowEvent(uint loan) public {
-        uint rate_ = loanRate(loan);
+    function borrowEvent(uint loan) public auth {
+        uint risk_ = risk[nftID(loan)];
+
         // condition is only true if there is no outstanding debt
         // if the rate has been changed with the update method
         // the pile rate is already up to date
-        if(pile.loanRates(loan) != rate_) {
-            pile.setRate(loan, rate_);
+        if(pile.loanRates(loan) != risk_) {
+            pile.setRate(loan, risk_);
         }
     }
 
-    // borrowEvent is called by the shelf in the borrow method
-    function unlockEvent(uint loan) public {
-
-    }
-
-    // sets the loan rate in pile
-    // not possible for ongoing loans
-    function setPileRate(uint loan) public auth {
-        pile.setRate(loan, loanRate(loan));
-    }
+    // unlockEvent is called by the shelf.unlock method
+    function unlockEvent(uint loan) public auth {}
 
     ///  -- Getter methods --
+    /// returns the ceiling of a loan
+    /// the ceiling defines the maximum amount which can be borrowed
     function ceiling(uint loan) public view returns (uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], ceilingRatio[risk[nftID_]]);
     }
 
+    /// returns the threshold of a loan
+    /// if the loan debt is above the loan threshold the NFT can be seized
     function threshold(uint loan) public view returns (uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], thresholdRatio[risk[nftID_]]);
     }
 
-    function loanRate(uint loan) public view returns (uint) {
-        return rate[risk[nftID(loan)]];
+    /// returns the rate per second of a loan
+    function loanRatePerSecond(uint loan) public view returns (uint) {
+        bytes32 nftID_ = nftID(loan);
+        // the risk group is used as a rateId in pile
+        (,,uint rate ,) = pile.rates(risk[nftID_]);
+        return rate;
     }
 }

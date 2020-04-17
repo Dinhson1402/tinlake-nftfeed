@@ -31,31 +31,32 @@ contract NFTFeedTest is DSTest {
 
     function setUp() public {
         // default values
+        uint defaultRisk=0;
         defaultThresholdRatio = 8*10**26;                     // 80% threshold
         defaultCeilingRatio = 6*10**26;                       // 60% ceiling
         defaultRate = uint(1000000564701133626865910626);     // 5 % day
 
-        nftFeed = new BaseNFTFeed(defaultThresholdRatio, defaultCeilingRatio, defaultRate);
+        nftFeed = new BaseNFTFeed();
         pile = new PileMock();
         shelf = new ShelfMock();
-
         nftFeed.depend("shelf", address(shelf));
         nftFeed.depend("pile", address(pile));
-
+        nftFeed.setRiskGroup(defaultRisk, defaultThresholdRatio, defaultCeilingRatio, defaultRate);
     }
 
-    function testBasisNFT() public {
+    function testBasicNFT() public {
         bytes32 nftID = nftFeed.nftID(address(1), 1);
         uint value = 100 ether;
         nftFeed.update(nftID, value);
 
         uint loan = 1;
         shelf.setReturn("shelf",address(1), 1);
+        pile.setReturn("rates_ratePerSecond", defaultRate);
 
         assertEq(nftFeed.nftValues(nftID), 100 ether);
         assertEq(nftFeed.threshold(loan), 80 ether);
         assertEq(nftFeed.ceiling(loan), 60 ether);
-        assertEq(nftFeed.loanRate(loan), defaultRate);
+        assertEq(nftFeed.loanRatePerSecond(loan), defaultRate);
     }
 
     function testRiskGroup() public {
@@ -78,16 +79,18 @@ contract NFTFeedTest is DSTest {
         assertEq(nftFeed.nftValues(nftID), 100 ether);
         assertEq(nftFeed.threshold(loan), 70 ether);
         assertEq(nftFeed.ceiling(loan), 50 ether);
-        assertEq(nftFeed.loanRate(loan), rate);
+        pile.setReturn("rates_ratePerSecond", rate);
+        assertEq(nftFeed.loanRatePerSecond(loan), rate);
 
         // set back to default
         uint defaultRisk = 0;
         value = 1000 ether;
+        pile.setReturn("rates_ratePerSecond", defaultRate);
         nftFeed.update(nftID, value, defaultRisk);
         assertEq(nftFeed.nftValues(nftID), 1000 ether);
         assertEq(nftFeed.threshold(loan), 800 ether);
         assertEq(nftFeed.ceiling(loan), 600 ether);
-        assertEq(nftFeed.loanRate(loan), defaultRate);
+        assertEq(nftFeed.loanRatePerSecond(loan), defaultRate);
     }
 
     function testChangeRate() public {
@@ -105,11 +108,28 @@ contract NFTFeedTest is DSTest {
         pile.setReturn("pie", 123);
         shelf.setReturn("nftlookup", loan);
 
-        // should fail, not every value for risk group 3 set
+
         nftFeed.update(nftID, 100 ether, risk);
 
         assertEq(pile.values_uint("changeRate_loan"), loan);
-        assertEq(pile.values_uint("changeRate_rate"), rate);
+        // feed risk category is rate group in pile
+        assertEq(pile.values_uint("changeRate_rate"), risk);
+    }
+
+    function testBorrowEvent() public {
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+        uint value = 100 ether;
+        uint risk = 0;
+
+        uint loan = 1;
+        shelf.setReturn("shelf",address(1), 1);
+        pile.setReturn("loanRates", 1);
+
+        nftFeed.update(nftID, value, risk);
+        nftFeed.borrowEvent(loan);
+        assertEq(pile.values_uint("setRate_loan"), loan);
+        // risk group is used as rate
+        assertEq(pile.values_uint("setRate_rate"), risk);
     }
 
 }

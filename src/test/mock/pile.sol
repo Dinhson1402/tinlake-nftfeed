@@ -31,6 +31,10 @@ contract PileMock is Mock {
         return call("debt");
     }
 
+    function loanRates(uint) public returns(uint) {
+        return call("loanRates");
+    }
+
     function pie(uint) public returns(uint) {
         return call("pie");
     }
@@ -53,9 +57,14 @@ contract PileMock is Mock {
         calls["accrue"]++;
     }
 
-    function file(uint rate, uint speed) public {
+    function file(bytes32, uint rate, uint speed) public {
         values_uint["file_rate"] = rate;
         values_uint["file_speed"] = speed;
         calls["file"]++;
     }
+
+    function rates(uint) public view returns(uint, uint, uint, uint48) {
+        return (0,0,values_return["rates_ratePerSecond"],0);
+    }
+
 }

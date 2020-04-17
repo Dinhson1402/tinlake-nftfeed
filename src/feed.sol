@@ -39,8 +39,9 @@ contract Feed is BaseNFTFeed, DSTest {
     }
     // Ceiling Implementation
     function borrow(uint loan, uint amount) external auth {
-        // ceiling check uses existing loan debt
         uint normalizedDay = uniqueDayTimestamp(now);
+
+        // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow

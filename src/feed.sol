@@ -38,7 +38,7 @@ contract Feed is BaseNFTFeed, DSTest {
         return (1 days) * (timestamp/(1 days));
     }
 
-    /// dueDate is timestamp a unix timestamp
+    /// dueDate is a unix timestamp
     function file(bytes32 what, bytes32 nftID_, uint dueDate_) public {
         if (what == "duedate") {
             dueDate[nftID_] = uniqueDayTimestamp(dueDate_);

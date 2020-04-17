@@ -12,7 +12,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 pragma solidity >=0.5.15;
 
 import "ds-test/test.sol";
@@ -21,9 +20,7 @@ import "./../nftfeed.sol";
 import "./mock/shelf.sol";
 import "./mock/pile.sol";
 
-
 contract NFTFeedTest is DSTest {
-
     BaseNFTFeed public nftFeed;
     ShelfMock shelf;
     PileMock pile;
@@ -31,7 +28,6 @@ contract NFTFeedTest is DSTest {
     uint defaultRate;
     uint defaultThresholdRatio;
     uint defaultCeilingRatio;
-
 
     function setUp() public {
         // default values

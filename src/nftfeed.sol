@@ -113,6 +113,7 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
 
     function repay(uint loan, uint amount) external auth {}
 
+    // borrowEvent is called by the shelf in the borrow method
     function borrowEvent(uint loan) public {
         uint rate_ = loanRate(loan);
         // condition is only true if there is no outstanding debt
@@ -123,6 +124,7 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
         }
     }
 
+    // borrowEvent is called by the shelf in the borrow method
     function unlockEvent(uint loan) public {
 
     }

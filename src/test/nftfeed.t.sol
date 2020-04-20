@@ -43,6 +43,11 @@ contract NFTFeedTest is DSTest {
         nftFeed.init();
     }
 
+    function testFailInit() public {
+        // call init twice
+        nftFeed.init();
+    }
+
     function testBasicNFT() public {
         bytes32 nftID = nftFeed.nftID(address(1), 1);
         uint value = 100 ether;

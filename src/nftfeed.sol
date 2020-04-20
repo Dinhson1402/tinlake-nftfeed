@@ -54,6 +54,7 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     }
 
     function init() public {
+        require(thresholdRatio[0] == 0);
         // risk groups are pre-defined and should not change
         // gas optimized initialization of risk groups
 

@@ -39,16 +39,35 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     mapping (bytes32 => uint) public nftValues;
     // nftID => risk
     mapping (bytes32 => uint) public risk;
+
     // risk => thresholdRatio
     mapping (uint => uint) public thresholdRatio;
     // risk => ceilingRatio
     mapping (uint => uint) public ceilingRatio;
+
 
     PileLike pile;
     ShelfLike shelf;
 
     constructor () public {
         wards[msg.sender] = 1;
+    }
+
+    function init() public {
+        // risk groups are pre-defined and should not change
+        // gas optimized initialization of risk groups
+
+        // default risk => 0
+        // thresholdRatio => 80%
+        // ceilingRatio => 60%
+        // interestRatePerSecond results  =>  5 % day
+        setRiskGroup(0, 8*10**26, 6*10**26, uint(1000000564701133626865910626));
+
+        // risk group  => 1
+        // thresholdRatio => 70%
+        // ceilingRatio => 50%
+        // interestRatePerSecond results  =>  12 % day
+        setRiskGroup(1, 7*10**26, 5*10**26, uint(1000001311675458706187136988));
     }
 
     /// sets the dependency to another contract
@@ -71,7 +90,7 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     }
 
     /// Admin -- Updates
-    function setRiskGroup(uint risk_, uint thresholdRatio_, uint ceilingRatio_, uint rate_) public auth {
+    function setRiskGroup(uint risk_, uint thresholdRatio_, uint ceilingRatio_, uint rate_) internal {
         thresholdRatio[risk_] = thresholdRatio_;
         ceilingRatio[risk_] = ceilingRatio_;
         // the risk group is used as a rate id in the pile
@@ -136,13 +155,5 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     function threshold(uint loan) public view returns (uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], thresholdRatio[risk[nftID_]]);
-    }
-
-    /// returns the rate per second of a loan
-    function loanRatePerSecond(uint loan) public view returns (uint) {
-        bytes32 nftID_ = nftID(loan);
-        // the risk group is used as a rateId in pile
-        (,,uint rate ,) = pile.rates(risk[nftID_]);
-        return rate;
     }
 }

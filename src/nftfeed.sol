@@ -17,7 +17,7 @@ pragma solidity >=0.5.15;
 
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
-import "tinlake-math/interest.sol";
+import "tinlake-math/math.sol";
 
 contract ShelfLike {
     function shelf(uint loan) public view returns (address registry, uint tokenId);
@@ -34,7 +34,7 @@ contract PileLike {
     function rates(uint rate) public view returns(uint, uint, uint ,uint48);
 }
 
-contract BaseNFTFeed is DSNote, Auth, Interest {
+contract BaseNFTFeed is DSNote, Auth, Math {
     // nftID => nftValues
     mapping (bytes32 => uint) public nftValues;
     // nftID => risk
@@ -112,6 +112,8 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
         require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
 
         // change to new rate immediately in pile if a loan debt exists
+        // if pie is equal to 0 (no loan debt exists) the rate is set
+        // in the borrowEvent method to keep the frequently called update method gas efficient
         uint loan = shelf.nftlookup(nftID_);
         if (pile.pie(loan) != 0) {
             pile.changeRate(loan, risk_);

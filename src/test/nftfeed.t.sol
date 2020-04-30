@@ -120,4 +120,46 @@ contract NFTFeedTest is DSTest {
         // risk group is used as rate
         assertEq(pile.values_uint("setRate_rate"), risk);
     }
+
+    function testCeiling() public {
+        // risk group
+        uint risk = 1;
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+        uint loan = 1;
+        uint value = 100 ether;
+        shelf.setReturn("shelf",address(1), 1);
+
+        nftFeed.update(nftID, value, risk);
+
+        // total ceiling for risk group 1
+        uint maxCeiling = 50 ether;
+        assertEq(nftFeed.ceiling(loan), maxCeiling);
+
+        uint amount = 20 ether;
+        nftFeed.borrow(loan, amount);
+
+        // total ceiling for risk group 1
+        assertEq(nftFeed.ceiling(loan), maxCeiling-amount);
+
+        nftFeed.borrow(loan, maxCeiling-amount);
+
+        assertEq(nftFeed.ceiling(loan), 0);
+    }
+
+    function testFailBorrowTooHigh() public {
+        // risk group
+        uint risk = 1;
+        bytes32 nftID = nftFeed.nftID(address(1), 1);
+        uint loan = 1;
+        uint value = 100 ether;
+        shelf.setReturn("shelf",address(1), 1);
+
+        nftFeed.update(nftID, value, risk);
+
+        uint maxCeiling = 50 ether;
+        assertEq(nftFeed.ceiling(loan), maxCeiling);
+        nftFeed.borrow(loan, maxCeiling+1);
+
+    }
+
 }

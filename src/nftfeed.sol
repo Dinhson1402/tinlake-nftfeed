@@ -45,6 +45,8 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     // risk => ceilingRatio
     mapping (uint => uint) public ceilingRatio;
 
+    // loan => borrowed
+    mapping (uint => uint) public borrowed;
 
     PileLike pile;
     ShelfLike shelf;
@@ -122,7 +124,10 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     // method is called by the pile to check the ceiling
     function borrow(uint loan, uint amount) external auth {
         // ceiling check uses existing loan debt
-        require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
+
+        borrowed[loan] = safeAdd(borrowed[loan], amount);
+
+        require(totalCeiling(loan) >= borrowed[loan], "borrow-amount-too-high");
     }
 
     // method is called by the pile to check the ceiling
@@ -147,6 +152,10 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     /// returns the ceiling of a loan
     /// the ceiling defines the maximum amount which can be borrowed
     function ceiling(uint loan) public view returns (uint) {
+        return safeSub(totalCeiling(loan), borrowed[loan]);
+    }
+
+    function totalCeiling(uint loan) public view returns(uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], ceilingRatio[risk[nftID_]]);
     }

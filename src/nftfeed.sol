@@ -129,7 +129,7 @@ contract BaseNFTFeed is DSNote, Auth, Math {
 
         borrowed[loan] = safeAdd(borrowed[loan], amount);
 
-        require(totalCeiling(loan) >= borrowed[loan], "borrow-amount-too-high");
+        require(initialCeiling(loan) >= borrowed[loan], "borrow-amount-too-high");
     }
 
     // method is called by the pile to check the ceiling
@@ -154,10 +154,10 @@ contract BaseNFTFeed is DSNote, Auth, Math {
     /// returns the ceiling of a loan
     /// the ceiling defines the maximum amount which can be borrowed
     function ceiling(uint loan) public view returns (uint) {
-        return safeSub(totalCeiling(loan), borrowed[loan]);
+        return safeSub(initialCeiling(loan), borrowed[loan]);
     }
 
-    function totalCeiling(uint loan) public view returns(uint) {
+    function initialCeiling(uint loan) public view returns(uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], ceilingRatio[risk[nftID_]]);
     }

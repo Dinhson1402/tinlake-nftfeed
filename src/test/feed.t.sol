@@ -66,7 +66,7 @@ contract NAVTest is DSTest {
         uint value = 100 ether;
         (bytes32 nftID, uint loan) = prepareDefaultNFT(value);
         uint dueDate = now + 2 days;
-        feed.file("duedate",nftID, dueDate);
+        feed.file("maturityDate",nftID, dueDate);
         uint amount = 50 ether;
 
         pile.setReturn("loanRates", uint(1000000564701133626865910626));

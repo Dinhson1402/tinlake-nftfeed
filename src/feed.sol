@@ -31,8 +31,8 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
     mapping (uint => uint) public nextBucket;
     uint firstBucket;
 
-    // nftID => dueDate
-    mapping (bytes32 => uint) public dueDate;
+    // nftID => maturityDate
+    mapping (bytes32 => uint) public maturityDate;
 
 
     uint public discountRate;
@@ -49,10 +49,10 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
         return (1 days) * (timestamp/(1 days));
     }
 
-    /// dueDate is a unix timestamp
-    function file(bytes32 what, bytes32 nftID_, uint dueDate_) public {
-        if (what == "duedate") {
-            dueDate[nftID_] = uniqueDayTimestamp(dueDate_);
+    /// maturityDate is a unix timestamp
+    function file(bytes32 what, bytes32 nftID_, uint maturityDate_) public {
+        if (what == "maturityDate") {
+            maturityDate[nftID_] = uniqueDayTimestamp(maturityDate_);
         } else { revert("unknown config parameter");}
     }
 
@@ -65,35 +65,35 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
 
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow
-        uint dueDate_ = dueDate[nftID_];
-        dateBucket[dueDate_] = rmul(rpow(pile.loanRates(loan),  safeSub(dueDate_, normalizedDay), ONE), amount);
+        uint maturityDate_ = maturityDate[nftID_];
+        dateBucket[maturityDate_] = rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount);
 
-        if (dateBucket[dueDate_] == 0) {
+        if (dateBucket[maturityDate_] == 0) {
 
         }
     }
 
-    function addToLinkedList(uint dueDate_) internal {
+    function addToLinkedList(uint maturityDate_) internal {
         if (firstBucket == 0) {
-            firstBucket = dueDate_;
-            nextBucket[dueDate_] = EmptyBucket;
+            firstBucket = maturityDate_;
+            nextBucket[maturityDate_] = EmptyBucket;
             return;
         }
 
         // find previous bucket
-        uint prev = dueDate_;
+        uint prev = maturityDate_;
         while(nextBucket[prev] != 0) {prev = prev - 1 days;}
 
-        // dueDate is the new last bucket
+        // maturityDate is the new last bucket
         if(nextBucket[prev] == EmptyBucket) {
-            nextBucket[prev] = dueDate_;
-            nextBucket[dueDate_] = EmptyBucket;
+            nextBucket[prev] = maturityDate_;
+            nextBucket[maturityDate_] = EmptyBucket;
             return;
 
         }
 
-        nextBucket[dueDate_] = nextBucket[prev];
-        nextBucket[prev] = dueDate_;
+        nextBucket[maturityDate_] = nextBucket[prev];
+        nextBucket[prev] = maturityDate_;
     }
 
     function repay(uint loan, uint amount) external auth {

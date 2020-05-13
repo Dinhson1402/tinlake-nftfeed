@@ -52,26 +52,35 @@ contract NAVTest is DSTest {
         feed.init();
     }
 
-    function prepareDefaultNFT(uint nftValue) public returns(bytes32, uint) {
-        bytes32 nftID = feed.nftID(address(1), 1);
+    function prepareDefaultNFT(uint tokenId, uint nftValue) public returns(bytes32, uint) {
+        bytes32 nftID = feed.nftID(address(1), tokenId);
         feed.update(nftID, nftValue);
         uint loan = 1;
-        shelf.setReturn("shelf",address(1), 1);
+        shelf.setReturn("shelf",address(1), tokenId);
         pile.setReturn("debt_loan", 0);
         pile.setReturn("rates_ratePerSecond", defaultRate);
         return (nftID, loan);
     }
 
-    function testSimpleBorrow() public {
-        uint value = 100 ether;
-        (bytes32 nftID, uint loan) = prepareDefaultNFT(value);
-        uint dueDate = now + 2 days;
-        feed.file("maturityDate",nftID, dueDate);
+    function borrow(uint tokenId, uint nftValue, uint amount, uint maturityDate) internal returns(bytes32, uint) {
+        (bytes32 nftID, uint loan) = prepareDefaultNFT(tokenId, nftValue);
+        feed.file("maturityDate",nftID, maturityDate);
         uint amount = 50 ether;
 
         pile.setReturn("loanRates", uint(1000000564701133626865910626));
 
         feed.borrow(loan, amount);
+
+        return (nftID, loan);
+    }
+
+    function testSimpleBorrow() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint dueDate = now + 2 days;
+        uint amount = 50 ether;
+
+        borrow(tokenId, nftValue, amount, dueDate);
 
         // check FV
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
@@ -86,6 +95,20 @@ contract NAVTest is DSTest {
         hevm.warp(now + 1 days);
         // FV/(1.03^0)
         assertEq(feed.nav(), 55.125 ether);
+    }
+
+    function testLinkedListBucket() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint dueDate = now + 2 days;
+        uint amount = 50 ether;
+
+        borrow(tokenId, nftValue, amount, dueDate);
+
+        uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
+
+        uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
+        assertEq(feed.dateBucket(normalizedDueDate), FV);
     }
 
     function testNormalizeDate() public {

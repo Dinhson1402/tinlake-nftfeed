@@ -15,11 +15,11 @@ pragma solidity >=0.5.15;
 
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
-import "tinlake-math/math.sol";
+import "tinlake-math/Interest.sol";
 import "ds-test/test.sol";
 import "./nftfeed.sol";
 
-contract Feed is BaseNFTFeed, DSTest {
+contract Feed is BaseNFTFeed, Interest, DSTest {
     // dueDate => FV
     mapping (uint => uint) public futureValueAtDate;
     // nftID => dueDate
@@ -51,9 +51,10 @@ contract Feed is BaseNFTFeed, DSTest {
 
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
+
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow
-        futureValueAtDate[dueDate[nftID_]] = rmul(rpow(loanRatePerSecond(loan),  dueDate[nftID_]  - normalizedDay, ONE), amount);
+        futureValueAtDate[dueDate[nftID_]] = rmul(rpow(pile.loanRates(loan),  dueDate[nftID_]  - normalizedDay, ONE), amount);
     }
 
     function repay(uint loan, uint amount) external auth {}

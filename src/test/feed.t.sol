@@ -42,14 +42,14 @@ contract NAVTest is DSTest {
         defaultRate = uint(1000000564701133626865910626);     // 5 % day
         discountRate = uint(1000000342100000000000000000);    // 3 % day
         uint maxDays = 10 days;
-        uint defaultRisk = 0;
 
         feed = new Feed(discountRate, maxDays);
         pile = new PileMock();
         shelf = new ShelfMock();
         feed.depend("shelf", address(shelf));
         feed.depend("pile", address(pile));
-        feed.setRiskGroup(defaultRisk, defaultThresholdRatio, defaultCeilingRatio, defaultRate);
+
+        feed.init();
     }
 
     function prepareDefaultNFT(uint nftValue) public returns(bytes32, uint) {
@@ -68,6 +68,9 @@ contract NAVTest is DSTest {
         uint dueDate = now + 2 days;
         feed.file("duedate",nftID, dueDate);
         uint amount = 50 ether;
+
+        pile.setReturn("loanRates", uint(1000000564701133626865910626));
+
         feed.borrow(loan, amount);
 
         // check FV

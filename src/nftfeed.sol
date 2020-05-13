@@ -17,7 +17,7 @@ pragma solidity >=0.5.15;
 
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
-import "tinlake-math/interest.sol";
+import "tinlake-math/math.sol";
 
 contract ShelfLike {
     function shelf(uint loan) public view returns (address registry, uint tokenId);
@@ -34,21 +34,43 @@ contract PileLike {
     function rates(uint rate) public view returns(uint, uint, uint ,uint48);
 }
 
-contract BaseNFTFeed is DSNote, Auth, Interest {
+contract BaseNFTFeed is DSNote, Auth, Math {
     // nftID => nftValues
     mapping (bytes32 => uint) public nftValues;
     // nftID => risk
     mapping (bytes32 => uint) public risk;
+
     // risk => thresholdRatio
     mapping (uint => uint) public thresholdRatio;
     // risk => ceilingRatio
     mapping (uint => uint) public ceilingRatio;
+
+    // loan => borrowed
+    mapping (uint => uint) public borrowed;
 
     PileLike pile;
     ShelfLike shelf;
 
     constructor () public {
         wards[msg.sender] = 1;
+    }
+
+    function init() public {
+        require(thresholdRatio[0] == 0);
+        // risk groups are pre-defined and should not change
+        // gas optimized initialization of risk groups
+
+        // default risk => 0
+        // thresholdRatio => 80%
+        // ceilingRatio => 60%
+        // interestRatePerSecond results  =>  5 % day
+        setRiskGroup(0, 8*10**26, 6*10**26, uint(1000000564701133626865910626));
+
+        // risk group  => 1
+        // thresholdRatio => 70%
+        // ceilingRatio => 50%
+        // interestRatePerSecond results  =>  12 % day
+        setRiskGroup(1, 7*10**26, 5*10**26, uint(1000001311675458706187136988));
     }
 
     /// sets the dependency to another contract
@@ -71,7 +93,7 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     }
 
     /// Admin -- Updates
-    function setRiskGroup(uint risk_, uint thresholdRatio_, uint ceilingRatio_, uint rate_) public auth {
+    function setRiskGroup(uint risk_, uint thresholdRatio_, uint ceilingRatio_, uint rate_) internal {
         thresholdRatio[risk_] = thresholdRatio_;
         ceilingRatio[risk_] = ceilingRatio_;
         // the risk group is used as a rate id in the pile
@@ -90,6 +112,8 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
         require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
 
         // change to new rate immediately in pile if a loan debt exists
+        // if pie is equal to 0 (no loan debt exists) the rate is set
+        // in the borrowEvent method to keep the frequently called update method gas efficient
         uint loan = shelf.nftlookup(nftID_);
         if (pile.pie(loan) != 0) {
             pile.changeRate(loan, risk_);
@@ -102,7 +126,10 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     // method is called by the pile to check the ceiling
     function borrow(uint loan, uint amount) external auth {
         // ceiling check uses existing loan debt
-        require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
+
+        borrowed[loan] = safeAdd(borrowed[loan], amount);
+
+        require(initialCeiling(loan) >= borrowed[loan], "borrow-amount-too-high");
     }
 
     // method is called by the pile to check the ceiling
@@ -127,6 +154,10 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     /// returns the ceiling of a loan
     /// the ceiling defines the maximum amount which can be borrowed
     function ceiling(uint loan) public view returns (uint) {
+        return safeSub(initialCeiling(loan), borrowed[loan]);
+    }
+
+    function initialCeiling(uint loan) public view returns(uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], ceilingRatio[risk[nftID_]]);
     }
@@ -136,13 +167,5 @@ contract BaseNFTFeed is DSNote, Auth, Interest {
     function threshold(uint loan) public view returns (uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], thresholdRatio[risk[nftID_]]);
-    }
-
-    /// returns the rate per second of a loan
-    function loanRatePerSecond(uint loan) public view returns (uint) {
-        bytes32 nftID_ = nftID(loan);
-        // the risk group is used as a rateId in pile
-        (,,uint rate ,) = pile.rates(risk[nftID_]);
-        return rate;
     }
 }

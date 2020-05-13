@@ -29,7 +29,7 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
     mapping (uint => uint) public dateBucket;
     // normalized timestamp -> normalized timestamp
     mapping (uint => uint) public nextBucket;
-    uint firstBucket;
+    uint public firstBucket;
 
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
@@ -38,7 +38,7 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
     uint public discountRate;
     uint public maxDays;
 
-    uint constant EmptyBucket = 1;
+    uint constant NullDate = 1;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -66,17 +66,20 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow
         uint maturityDate_ = maturityDate[nftID_];
-        dateBucket[maturityDate_] = rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount);
 
         if (dateBucket[maturityDate_] == 0) {
-
+            addToLinkedList(maturityDate_);
         }
+
+        // calculate future value of the loan and add it to the bucket
+        dateBucket[maturityDate_] = safeAdd(dateBucket[maturityDate_], rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount));
+
     }
 
     function addToLinkedList(uint maturityDate_) internal {
         if (firstBucket == 0) {
             firstBucket = maturityDate_;
-            nextBucket[maturityDate_] = EmptyBucket;
+            nextBucket[maturityDate_] = NullDate;
             return;
         }
 
@@ -85,9 +88,9 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
         while(nextBucket[prev] != 0) {prev = prev - 1 days;}
 
         // maturityDate is the new last bucket
-        if(nextBucket[prev] == EmptyBucket) {
+        if(nextBucket[prev] == NullDate) {
             nextBucket[prev] = maturityDate_;
-            nextBucket[maturityDate_] = EmptyBucket;
+            nextBucket[maturityDate_] = NullDate;
             return;
 
         }
@@ -103,14 +106,37 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function nav() public view returns(uint) {
+    /// deprecated only for performance comparing
+    /// todo old implementation will be removed
+    function navOverTime() public view returns(uint) {
         uint normalizedDay = uniqueDayTimestamp(now);
         uint sum = 0;
 
         // current implementation ignores overdue nfts
         for (uint i = 0;i <= maxDays; i=i + 1 days) {
-            sum += rdiv(dateBucket[normalizedDay + i], rpow(discountRate,  i, ONE));
+            if(dateBucket[normalizedDay + i] != 0) {
+                sum += rdiv(dateBucket[normalizedDay + i], rpow(discountRate,  i, ONE));
+            }
         }
+        return sum;
+    }
+
+    /// returns the NAV (net asset value) of the pool
+    function nav() public  returns(uint) {
+        uint normalizedDay = uniqueDayTimestamp(now);
+        uint sum = 0;
+
+        uint currDate = normalizedDay;
+
+        while(nextBucket[currDate] == 0) { currDate = currDate + 1 days; }
+
+        do
+        {
+            sum += rdiv(dateBucket[currDate], rpow(discountRate,  safeSub(currDate, normalizedDay), ONE));
+            currDate = nextBucket[currDate];
+        }
+        while(currDate != NullDate);
+
         return sum;
     }
 }

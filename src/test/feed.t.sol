@@ -41,7 +41,7 @@ contract NAVTest is DSTest {
         defaultCeilingRatio = 6*10**26;                       // 60% ceiling
         defaultRate = uint(1000000564701133626865910626);     // 5 % day
         discountRate = uint(1000000342100000000000000000);    // 3 % day
-        uint maxDays = 10 days;
+        uint maxDays = 120 days;
 
         feed = new Feed(discountRate, maxDays);
         pile = new PileMock();
@@ -103,12 +103,16 @@ contract NAVTest is DSTest {
         uint dueDate = now + 2 days;
         uint amount = 50 ether;
 
-        borrow(tokenId, nftValue, amount, dueDate);
+        (bytes32 nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
 
         uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
         assertEq(feed.dateBucket(normalizedDueDate), FV);
+
+
+      assertEq(feed.nav(), 51.960741582371777180 ether);
+
     }
 
     function testNormalizeDate() public {

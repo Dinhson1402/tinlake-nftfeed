@@ -20,14 +20,25 @@ import "ds-test/test.sol";
 import "./nftfeed.sol";
 
 contract Feed is BaseNFTFeed, Interest, DSTest {
-    // dueDate => FV
-    mapping (uint => uint) public futureValueAtDate;
+
+    // gas-optimized implementation instead of a struct each
+    // variable has its own mapping
+
+    // linked list of future value buckets
+    // normalized timestamp -> value denominated in WAD
+    mapping (uint => uint) public dateBucket;
+    // normalized timestamp -> normalized timestamp
+    mapping (uint => uint) public nextBucket;
+    uint firstBucket;
+
     // nftID => dueDate
     mapping (bytes32 => uint) public dueDate;
 
 
     uint public discountRate;
     uint public maxDays;
+
+    uint constant EmptyBucket = 1;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -54,10 +65,42 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
 
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow
-        futureValueAtDate[dueDate[nftID_]] = rmul(rpow(pile.loanRates(loan),  safeSub(dueDate[nftID_], normalizedDay), ONE), amount);
+        uint dueDate_ = dueDate[nftID_];
+        dateBucket[dueDate_] = rmul(rpow(pile.loanRates(loan),  safeSub(dueDate_, normalizedDay), ONE), amount);
+
+        if (dateBucket[dueDate_] == 0) {
+
+        }
     }
 
-    function repay(uint loan, uint amount) external auth {}
+    function addToLinkedList(uint dueDate_) internal {
+        if (firstBucket == 0) {
+            firstBucket = dueDate_;
+            nextBucket[dueDate_] = EmptyBucket;
+            return;
+        }
+
+        // find previous bucket
+        uint prev = dueDate_;
+        while(nextBucket[prev] != 0) {prev = prev - 1 days;}
+
+        // dueDate is the new last bucket
+        if(nextBucket[prev] == EmptyBucket) {
+            nextBucket[prev] = dueDate_;
+            nextBucket[dueDate_] = EmptyBucket;
+            return;
+
+        }
+
+        nextBucket[dueDate_] = nextBucket[prev];
+        nextBucket[prev] = dueDate_;
+    }
+
+    function repay(uint loan, uint amount) external auth {
+        // remove from FV
+        // remove from linked list
+
+    }
 
     /// returns the NAV (net asset value) of the pool
     function nav() public view returns(uint) {
@@ -66,7 +109,7 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
 
         // current implementation ignores overdue nfts
         for (uint i = 0;i <= maxDays; i=i + 1 days) {
-            sum += rdiv(futureValueAtDate[normalizedDay + i], rpow(discountRate,  i, ONE));
+            sum += rdiv(dateBucket[normalizedDay + i], rpow(discountRate,  i, ONE));
         }
         return sum;
     }

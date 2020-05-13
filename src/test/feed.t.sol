@@ -77,7 +77,7 @@ contract NAVTest is DSTest {
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
 
         uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
-        assertEq(feed.futureValueAtDate(normalizedDueDate), FV);
+        assertEq(feed.dateBucket(normalizedDueDate), FV);
         // FV/(1.03^2)
         assertEq(feed.nav(), 51.960741582371777180 ether);
         hevm.warp(now + 1 days);

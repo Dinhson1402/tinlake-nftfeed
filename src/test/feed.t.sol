@@ -103,15 +103,51 @@ contract NAVTest is DSTest {
         uint dueDate = now + 2 days;
         uint amount = 50 ether;
 
+        // insert first element
         (bytes32 nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
 
-        uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
+        uint FV = 55.125 ether; // 50 * 1.05 ^ 2 ~= 55.125
         assertEq(feed.dateBucket(normalizedDueDate), FV);
 
+        // FV/(1.03^2)
+        assertEq(feed.nav(), 51.960741582371777180 ether);
 
-      assertEq(feed.nav(), 51.960741582371777180 ether);
+        // insert next bucket after last bucket
+        dueDate = now + 5 days;
+        tokenId = 2;
+        (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
+
+        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) ~= 107.007702266903241118
+        assertEq(feed.nav(), 107.007702266903241118 ether);
+
+        // insert between two buckets
+        // current list: bucket[now+3days] -> bucket[now+5days]
+        dueDate = now + 4 days;
+        tokenId = 3;
+        (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
+
+        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 50*1.05^4/(1.03^4)  ~= 161.006075582703631092
+        assertEq(feed.nav(), 161.006075582703631092 ether);
+
+        // insert in the beginning
+        // current list: bucket[now+3days] -> bucket[now+4days] -> bucket[now+5days]
+        dueDate = now + 2 days;
+        tokenId = 4;
+        (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
+
+        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 50*1.05^4/(1.03^4) +
+        //50*1.05^2/(1.03^2)  ~= 212.966817165075408273
+        assertEq(feed.nav(), 212.966817165075408273 ether);
+
+        // add amount to existing bucket
+        dueDate = now + 4 days;
+        tokenId = 5;
+        (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
+        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 100*1.05^4/(1.03^4) +
+        //50*1.05^2/(1.03^2)  ~= 266.965190480875798248
+        assertEq(feed.nav(), 266.965190480875798248 ether);
 
     }
 

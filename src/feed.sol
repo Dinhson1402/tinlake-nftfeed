@@ -67,12 +67,14 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
         // calculate future cash flow
         uint maturityDate_ = maturityDate[nftID_];
 
+
         if (dateBucket[maturityDate_] == 0) {
             addToLinkedList(maturityDate_);
         }
 
         // calculate future value of the loan and add it to the bucket
-        dateBucket[maturityDate_] = safeAdd(dateBucket[maturityDate_], rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount));
+        dateBucket[maturityDate_] = safeAdd(dateBucket[maturityDate_],
+            rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount));
 
     }
 
@@ -83,32 +85,33 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
             return;
         }
 
+        // new bucket before first one
+        if (maturityDate_ < firstBucket) {
+            nextBucket[maturityDate_] = firstBucket;
+            firstBucket = maturityDate_;
+            return;
+        }
+
         // find previous bucket
         uint prev = maturityDate_;
-        while(nextBucket[prev] != 0) {prev = prev - 1 days;}
-
-        // maturityDate is the new last bucket
-        if(nextBucket[prev] == NullDate) {
-            nextBucket[prev] = maturityDate_;
-            nextBucket[maturityDate_] = NullDate;
-            return;
-
-        }
+        while(nextBucket[prev] == 0) {prev = prev - 1 days;}
 
         nextBucket[maturityDate_] = nextBucket[prev];
         nextBucket[prev] = maturityDate_;
     }
 
     function repay(uint loan, uint amount) external auth {
+        // todo
         // remove from FV
-        // remove from linked list
+        // remove from linked list if bucket is zero
 
     }
 
+    /// deprecated
     /// returns the NAV (net asset value) of the pool
-    /// deprecated only for performance comparing
+    /// only for performance comparing
     /// todo old implementation will be removed
-    function navOverTime() public view returns(uint) {
+    function navOld() public view returns(uint) {
         uint normalizedDay = uniqueDayTimestamp(now);
         uint sum = 0;
 
@@ -122,12 +125,15 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function nav() public  returns(uint) {
+    function nav() public view returns(uint) {
         uint normalizedDay = uniqueDayTimestamp(now);
         uint sum = 0;
 
         uint currDate = normalizedDay;
 
+        // we could remember the next bucket and only perform the search
+        // if now > remembered bucket
+        // con: we would modify the state and its not view anymore
         while(nextBucket[currDate] == 0) { currDate = currDate + 1 days; }
 
         do

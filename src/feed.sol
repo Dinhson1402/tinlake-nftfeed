@@ -54,7 +54,7 @@ contract Feed is BaseNFTFeed, Interest, DSTest {
 
         bytes32 nftID_ = nftID(loan);
         // calculate future cash flow
-        futureValueAtDate[dueDate[nftID_]] = rmul(rpow(pile.loanRates(loan),  dueDate[nftID_]  - normalizedDay, ONE), amount);
+        futureValueAtDate[dueDate[nftID_]] = rmul(rpow(pile.loanRates(loan),  safeSub(dueDate[nftID_], normalizedDay), ONE), amount);
     }
 
     function repay(uint loan, uint amount) external auth {}

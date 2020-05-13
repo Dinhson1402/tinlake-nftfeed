@@ -15,11 +15,11 @@ pragma solidity >=0.5.15;
 
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
-import "tinlake-math/Interest.sol";
+import "tinlake-math/interest.sol";
 import "ds-test/test.sol";
 import "./nftfeed.sol";
 
-contract Feed is BaseNFTFeed, Interest, DSTest {
+contract Feed is BaseNFTFeed, Interest {
 
     // gas-optimized implementation instead of a struct each
     // variable has its own mapping

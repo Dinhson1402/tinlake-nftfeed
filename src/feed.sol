@@ -131,9 +131,6 @@ contract Feed is BaseNFTFeed, Interest {
 
         uint currDate = normalizedDay;
 
-        // we could remember the next bucket and only perform the search
-        // if now > remembered bucket
-        // con: we would modify the state and its not view anymore
         while(nextBucket[currDate] == 0) { currDate = currDate + 1 days; }
 
         do

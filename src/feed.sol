@@ -67,7 +67,7 @@ contract Feed is BaseNFTFeed, Interest {
         uint maturityDate_ = maturityDate[nftID_];
 
         if (dateBucket[maturityDate_] == 0) {
-            addToLinkedList(maturityDate_);
+            addBucket(maturityDate_);
         }
 
         // calculate future value of the loan and add it to the bucket
@@ -76,7 +76,8 @@ contract Feed is BaseNFTFeed, Interest {
 
     }
 
-    function addToLinkedList(uint maturityDate_) internal {
+    /// adds a new bucket to the linked-list
+    function addBucket(uint maturityDate_) internal {
         if (firstBucket == 0) {
             firstBucket = maturityDate_;
             nextBucket[maturityDate_] = NullDate;
@@ -90,7 +91,8 @@ contract Feed is BaseNFTFeed, Interest {
             return;
         }
 
-        // find previous bucket
+        // find predecessor bucket by going back in one day steps
+        // instead of iterating the linked list from the first bucket
         uint prev = maturityDate_;
         while(nextBucket[prev] == 0) {prev = prev - 1 days;}
 

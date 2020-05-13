@@ -64,9 +64,7 @@ contract Feed is BaseNFTFeed, Interest {
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
 
         bytes32 nftID_ = nftID(loan);
-        // calculate future cash flow
         uint maturityDate_ = maturityDate[nftID_];
-
 
         if (dateBucket[maturityDate_] == 0) {
             addToLinkedList(maturityDate_);
@@ -102,26 +100,9 @@ contract Feed is BaseNFTFeed, Interest {
 
     function repay(uint loan, uint amount) external auth {
         // todo
-        // remove from FV
+        // remove amount from FV bucket
         // remove from linked list if bucket is zero
 
-    }
-
-    /// deprecated
-    /// returns the NAV (net asset value) of the pool
-    /// only for performance comparing
-    /// todo old implementation will be removed
-    function navOld() public view returns(uint) {
-        uint normalizedDay = uniqueDayTimestamp(now);
-        uint sum = 0;
-
-        // current implementation ignores overdue nfts
-        for (uint i = 0;i <= maxDays; i=i + 1 days) {
-            if(dateBucket[normalizedDay + i] != 0) {
-                sum += rdiv(dateBucket[normalizedDay + i], rpow(discountRate,  i, ONE));
-            }
-        }
-        return sum;
     }
 
     /// returns the NAV (net asset value) of the pool

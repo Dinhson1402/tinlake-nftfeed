@@ -151,6 +151,24 @@ contract NAVTest is DSTest {
 
     }
 
+    function testTimeOverBuckets() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint dueDate = now + 2 days;
+        uint amount = 50 ether;
+
+        // insert first element
+        (bytes32 nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
+
+        // 50 * 1.05^2/(1.03^2)
+        assertEq(feed.nav(), 51.960741582371777180 ether);
+
+        hevm.warp(now + 3 days);
+        assertEq(feed.nav(), 0);
+
+    }
+
+
     function testNormalizeDate() public {
         uint randomUnixTimestamp = 1586977096; // 04/15/2020 @ 6:58pm (UTC)
         uint dayTimestamp = feed.uniqueDayTimestamp(randomUnixTimestamp);

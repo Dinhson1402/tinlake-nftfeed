@@ -30,6 +30,7 @@ contract Feed is BaseNFTFeed, Interest {
     // normalized timestamp -> normalized timestamp
     mapping (uint => uint) public nextBucket;
     uint public firstBucket;
+    uint public lastBucket;
 
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
@@ -81,6 +82,7 @@ contract Feed is BaseNFTFeed, Interest {
         if (firstBucket == 0) {
             firstBucket = maturityDate_;
             nextBucket[maturityDate_] = NullDate;
+            lastBucket = firstBucket;
             return;
         }
 
@@ -96,6 +98,9 @@ contract Feed is BaseNFTFeed, Interest {
         uint prev = maturityDate_;
         while(nextBucket[prev] == 0) {prev = prev - 1 days;}
 
+        if (nextBucket[prev] == NullDate) {
+            lastBucket = maturityDate_;
+        }
         nextBucket[maturityDate_] = nextBucket[prev];
         nextBucket[prev] = maturityDate_;
     }
@@ -114,15 +119,17 @@ contract Feed is BaseNFTFeed, Interest {
 
         uint currDate = normalizedDay;
 
+        if (currDate > lastBucket) {
+            return 0;
+        }
+
         while(nextBucket[currDate] == 0) { currDate = currDate + 1 days; }
 
-        do
+        while(currDate != NullDate)
         {
             sum += rdiv(dateBucket[currDate], rpow(discountRate,  safeSub(currDate, normalizedDay), ONE));
             currDate = nextBucket[currDate];
         }
-        while(currDate != NullDate);
-
         return sum;
     }
 }

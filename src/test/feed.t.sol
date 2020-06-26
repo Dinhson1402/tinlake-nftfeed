@@ -23,7 +23,6 @@ contract Hevm {
 }
 
 contract NAVTest is DSTest {
-
     Feed public feed;
     ShelfMock shelf;
     PileMock pile;
@@ -31,6 +30,7 @@ contract NAVTest is DSTest {
     uint defaultThresholdRatio;
     uint defaultCeilingRatio;
     uint discountRate;
+    address mockNFTRegistry;
     Hevm hevm;
 
     function setUp() public {
@@ -49,14 +49,16 @@ contract NAVTest is DSTest {
         feed.depend("shelf", address(shelf));
         feed.depend("pile", address(pile));
 
+        mockNFTRegistry = address(42);
+
         feed.init();
     }
 
     function prepareDefaultNFT(uint tokenId, uint nftValue) public returns(bytes32, uint) {
-        bytes32 nftID = feed.nftID(address(1), tokenId);
-        feed.update(nftID, nftValue);
         uint loan = 1;
-        shelf.setReturn("shelf",address(1), tokenId);
+        bytes32 nftID = feed.nftID(mockNFTRegistry, tokenId);
+        feed.update(nftID, nftValue);
+        shelf.setReturn("shelf",mockNFTRegistry, tokenId);
         pile.setReturn("debt_loan", 0);
         pile.setReturn("rates_ratePerSecond", defaultRate);
         return (nftID, loan);
@@ -97,7 +99,11 @@ contract NAVTest is DSTest {
         assertEq(feed.nav(), 55.125 ether);
     }
 
-    function testLinkedListBucket() public {
+
+    /// setups the following linked list
+    /// list : [1 days] -> [2 days] -> [4 days] -> [5 days]
+    //         [50 DAI] -> [50 DAI] -> [100 DAI] -> [50 DAI]
+    function setupLinkedListBuckets() public {
         uint nftValue = 100 ether;
         uint tokenId = 1;
         uint dueDate = now + 2 days;
@@ -112,6 +118,7 @@ contract NAVTest is DSTest {
         assertEq(feed.dateBucket(normalizedDueDate), FV);
 
         // FV/(1.03^2)
+        // list: [2 days]
         assertEq(feed.nav(), 51.960741582371777180 ether);
 
         // insert next bucket after last bucket
@@ -119,36 +126,54 @@ contract NAVTest is DSTest {
         tokenId = 2;
         (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
-        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) ~= 107.007702266903241118
+        // list : [2 days] -> [5 days]
+        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) ~= 107.00
         assertEq(feed.nav(), 107.007702266903241118 ether);
 
         // insert between two buckets
-        // current list: bucket[now+3days] -> bucket[now+5days]
+        // current list: [2 days] -> [5 days]
         dueDate = now + 4 days;
         tokenId = 3;
         (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
-        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 50*1.05^4/(1.03^4)  ~= 161.006075582703631092
+        // list : [2 days] ->[4 days] -> [5 days]
+        //50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)   ~= 161.00
         assertEq(feed.nav(), 161.006075582703631092 ether);
 
-        // insert in the beginning
-        // current list: bucket[now+3days] -> bucket[now+4days] -> bucket[now+5days]
-        dueDate = now + 2 days;
+        // insert at the beginning
+        // current list: bucket[now+2days]-> bucket[now+4days] -> bucket[now+5days]
+        dueDate = now + 1 days;
         tokenId = 4;
         (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
-        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 50*1.05^4/(1.03^4) +
-        //50*1.05^2/(1.03^2)  ~= 212.966817165075408273
-        assertEq(feed.nav(), 212.966817165075408273 ether);
+        // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
+        // (50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5) ~= 211.977
+        assertEq(feed.nav(), 211.977019061499360158 ether);
 
         // add amount to existing bucket
         dueDate = now + 4 days;
         tokenId = 5;
         (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
-        //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) + 100*1.05^4/(1.03^4) +
-        //50*1.05^2/(1.03^2)  ~= 266.965190480875798248
-        assertEq(feed.nav(), 266.965190480875798248 ether);
+        // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
+        //(50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 265.97
+        assertEq(feed.nav(), 265.975392377299750133 ether);
 
+    }
+
+    function testLinkedListBucket() public {
+        setupLinkedListBuckets();
+
+        hevm.warp(now + 1 days);
+
+        // list : [0 days] -> [1 days] -> [3 days] -> [4 days]
+        //(50*1.05^1)/(1.03^0) + 50*1.05^2/(1.03^1) + 100*1.05^4/(1.03^3) + 50*1.05^5/(1.03^4)  ~= 273.95
+        assertEq(feed.nav(), 273.954279571404002939 ether);
+
+        hevm.warp(now + 1 days);
+
+        // list : [0 days] -> [2 days] -> [3 days]
+        // 50*1.05^2/(1.03^0) + 100*1.05^4/(1.03^2) + 50*1.05^5/(1.03^3) ~= 228.09
+        assertEq(feed.nav(), 228.097596081095759604 ether);
     }
 
     function testTimeOverBuckets() public {
@@ -165,7 +190,6 @@ contract NAVTest is DSTest {
 
         hevm.warp(now + 3 days);
         assertEq(feed.nav(), 0);
-
     }
 
 
@@ -180,4 +204,93 @@ contract NAVTest is DSTest {
         randomUnixTimestamp += 3 hours;
         assertTrue(feed.uniqueDayTimestamp(randomUnixTimestamp) == dayTimestamp);
     }
+
+    function testRepay() public {
+        uint normalizedDay = feed.uniqueDayTimestamp(now);
+        uint amount = 50 ether;
+        setupLinkedListBuckets();
+
+        uint tokenId = 1;
+        uint dueDate = now + 2 days;
+
+        uint loan = 1;
+
+        shelf.setReturn("shelf", mockNFTRegistry, tokenId);
+        // loan id doesn't matter because shelf is mocked
+        // repay not full amount
+        feed.repay(loan, 30 ether);
+        listLen();
+
+        // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
+        //(50*1.05^1)/(1.03^1) + (50*1.05^2 - 30) /(1.03^2)  + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 237.69
+        assertEq(feed.nav(), 237.697437774648442824 ether);
+
+        uint FV = 25.125 ether;  // 50*1.05^2 - 30
+        assertEq(feed.dateBucket(normalizedDay + 2 days), FV);
+
+        feed.repay(loan, 25.125 ether);
+        assertEq(feed.dateBucket(normalizedDay + 2 days), 0);
+
+        //(50*1.05^1)/(1.03^1) + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 214.014
+        assertEq(feed.nav(), 214.014650794927972953 ether);
+    }
+
+    function testRemoveBuckets() public {
+        // buckets are removed by completely repaying it
+        uint[4] memory buckets = [uint(52500000000000000000), uint(55125000000000000000), uint(121550625000000000000), uint(63814078125000000000)];
+        uint[4] memory tokenIdForBuckets = [uint(4), uint(1), uint(3), uint(2)];
+        // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
+
+        setupLinkedListBuckets();
+        assertEq(listLen(), 4);
+
+        // remove bucket in between buckets
+        // remove bucket [2 days]
+        uint idx = 1;
+        shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
+
+        // loan id doesn't matter because shelf is mocked
+        feed.repay(1, buckets[idx]);
+
+        assertEq(listLen(), 3);
+
+        // remove first bucket
+        // remove [1 days]
+//        // todo needs to be fixed
+//        idx = 0;
+//        shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
+//        feed.repay(1, buckets[idx]);
+//        assertEq(listLen(), 2);
+
+        // remove last bucket
+        // remove [5 days]
+        idx = 3;
+        shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
+        feed.repay(1, buckets[idx]);
+        assertEq(listLen(), 2);
+    }
+
+    function listLen() public returns (uint) {
+        uint normalizedDay = feed.uniqueDayTimestamp(now);
+        uint len = 0;
+
+        uint currDate = normalizedDay;
+
+        if (currDate > feed.lastBucket()) {
+            return 0;
+        }
+
+        while(feed.nextBucket(currDate) == 0) { currDate = currDate + 1 days; }
+
+        while(currDate != feed.NullDate())
+        {
+            emit log_named_uint("date_offset", (currDate-normalizedDay)/1 days);
+            emit log_named_uint("bucket_value", feed.dateBucket(currDate));
+            currDate = feed.nextBucket(currDate);
+            len++;
+
+        }
+        return len;
+    }
+
 }

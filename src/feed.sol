@@ -39,7 +39,7 @@ contract Feed is BaseNFTFeed, Interest {
     uint public discountRate;
     uint public maxDays;
 
-    uint constant NullDate = 1;
+    uint constant public NullDate = 1;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -106,9 +106,23 @@ contract Feed is BaseNFTFeed, Interest {
     }
 
     function repay(uint loan, uint amount) external auth {
-        // todo
-        // remove amount from FV bucket
-        // remove from linked list if bucket is zero
+        uint maturityDate_ = maturityDate[nftID(loan)];
+
+        dateBucket[maturityDate_] = safeSub(dateBucket[maturityDate_], amount);
+
+        if (dateBucket[maturityDate_] == 0) {
+            // remove from linked list
+            if (maturityDate_ != firstBucket) {
+                uint prev = maturityDate_ - 1 days;
+                while(nextBucket[prev] == 0) {prev = prev - 1 days;}
+
+                nextBucket[prev] = nextBucket[maturityDate_];
+            }
+            else {
+                firstBucket = nextBucket[maturityDate_];
+                nextBucket[maturityDate_] = 0;
+            }
+        }
 
     }
 
@@ -127,7 +141,7 @@ contract Feed is BaseNFTFeed, Interest {
 
         while(currDate != NullDate)
         {
-            sum += rdiv(dateBucket[currDate], rpow(discountRate,  safeSub(currDate, normalizedDay), ONE));
+            sum = safeAdd(sum, rdiv(dateBucket[currDate], rpow(discountRate,  safeSub(currDate, normalizedDay), ONE)));
             currDate = nextBucket[currDate];
         }
         return sum;

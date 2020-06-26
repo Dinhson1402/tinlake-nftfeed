@@ -16,7 +16,6 @@ pragma solidity >=0.5.15;
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
 import "tinlake-math/interest.sol";
-import "ds-test/test.sol";
 import "./nftfeed.sol";
 
 contract Feed is BaseNFTFeed, Interest {
@@ -117,6 +116,7 @@ contract Feed is BaseNFTFeed, Interest {
                 while(nextBucket[prev] == 0) {prev = prev - 1 days;}
 
                 nextBucket[prev] = nextBucket[maturityDate_];
+                nextBucket[maturityDate_] = 0;
             }
             else {
                 firstBucket = nextBucket[maturityDate_];

@@ -256,18 +256,17 @@ contract NAVTest is DSTest {
 
         // remove first bucket
         // remove [1 days]
-//        // todo needs to be fixed
-//        idx = 0;
-//        shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
-//        feed.repay(1, buckets[idx]);
-//        assertEq(listLen(), 2);
+        idx = 0;
+        shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
+        feed.repay(1, buckets[idx]);
+        assertEq(listLen(), 2);
 
         // remove last bucket
         // remove [5 days]
         idx = 3;
         shelf.setReturn("shelf", mockNFTRegistry, tokenIdForBuckets[idx]);
         feed.repay(1, buckets[idx]);
-        assertEq(listLen(), 2);
+        assertEq(listLen(), 1);
     }
 
     function listLen() public returns (uint) {

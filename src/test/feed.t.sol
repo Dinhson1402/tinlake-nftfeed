@@ -291,5 +291,4 @@ contract NAVTest is DSTest {
         }
         return len;
     }
-
 }

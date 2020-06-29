@@ -17,28 +17,14 @@ import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
 import "tinlake-math/interest.sol";
 import "./nftfeed.sol";
+import "./buckets.sol";
 
-contract Feed is BaseNFTFeed, Interest {
-
-    // gas-optimized implementation instead of a struct each
-    // variable has its own mapping
-
-    // linked list of future value buckets
-    // normalized timestamp -> value denominated in WAD
-    mapping (uint => uint) public dateBucket;
-    // normalized timestamp -> normalized timestamp
-    mapping (uint => uint) public nextBucket;
-    uint public firstBucket;
-    uint public lastBucket;
-
+contract Feed is BaseNFTFeed, Interest, Buckets {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
-
     uint public discountRate;
     uint public maxDays;
-
-    uint constant public NullDate = 1;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -77,53 +63,14 @@ contract Feed is BaseNFTFeed, Interest {
     }
 
     /// adds a new bucket to the linked-list
-    function addBucket(uint maturityDate_) internal {
-        if (firstBucket == 0) {
-            firstBucket = maturityDate_;
-            nextBucket[maturityDate_] = NullDate;
-            lastBucket = firstBucket;
-            return;
-        }
-
-        // new bucket before first one
-        if (maturityDate_ < firstBucket) {
-            nextBucket[maturityDate_] = firstBucket;
-            firstBucket = maturityDate_;
-            return;
-        }
-
-        // find predecessor bucket by going back in one day steps
-        // instead of iterating the linked list from the first bucket
-        uint prev = maturityDate_;
-        while(nextBucket[prev] == 0) {prev = prev - 1 days;}
-
-        if (nextBucket[prev] == NullDate) {
-            lastBucket = maturityDate_;
-        }
-        nextBucket[maturityDate_] = nextBucket[prev];
-        nextBucket[prev] = maturityDate_;
-    }
-
     function repay(uint loan, uint amount) external auth {
         uint maturityDate_ = maturityDate[nftID(loan)];
 
         dateBucket[maturityDate_] = safeSub(dateBucket[maturityDate_], amount);
 
         if (dateBucket[maturityDate_] == 0) {
-            // remove from linked list
-            if (maturityDate_ != firstBucket) {
-                uint prev = maturityDate_ - 1 days;
-                while(nextBucket[prev] == 0) {prev = prev - 1 days;}
-
-                nextBucket[prev] = nextBucket[maturityDate_];
-                nextBucket[maturityDate_] = 0;
-            }
-            else {
-                firstBucket = nextBucket[maturityDate_];
-                nextBucket[maturityDate_] = 0;
-            }
+            removeBucket(maturityDate_);
         }
-
     }
 
     /// returns the NAV (net asset value) of the pool

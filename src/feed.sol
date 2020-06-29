@@ -52,23 +52,24 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         bytes32 nftID_ = nftID(loan);
         uint maturityDate_ = maturityDate[nftID_];
 
-        if (dateBucket[maturityDate_] == 0) {
-            addBucket(maturityDate_);
+        // calculate future value FV
+        uint fv = rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount);
+
+        if (buckets[maturityDate_].value == 0) {
+            addBucket(maturityDate_, fv);
+            return;
         }
 
-        // calculate future value of the loan and add it to the bucket
-        dateBucket[maturityDate_] = safeAdd(dateBucket[maturityDate_],
-            rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount));
-
+        buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
     }
 
     /// adds a new bucket to the linked-list
     function repay(uint loan, uint amount) external auth {
         uint maturityDate_ = maturityDate[nftID(loan)];
 
-        dateBucket[maturityDate_] = safeSub(dateBucket[maturityDate_], amount);
+        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, amount);
 
-        if (dateBucket[maturityDate_] == 0) {
+        if (buckets[maturityDate_].value == 0) {
             removeBucket(maturityDate_);
         }
     }
@@ -84,12 +85,12 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
             return 0;
         }
 
-        while(nextBucket[currDate] == 0) { currDate = currDate + 1 days; }
+        while(buckets[currDate].next == 0) { currDate = currDate + 1 days; }
 
         while(currDate != NullDate)
         {
-            sum = safeAdd(sum, rdiv(dateBucket[currDate], rpow(discountRate,  safeSub(currDate, normalizedDay), ONE)));
-            currDate = nextBucket[currDate];
+            sum = safeAdd(sum, rdiv(buckets[currDate].value, rpow(discountRate,  safeSub(currDate, normalizedDay), ONE)));
+            currDate = buckets[currDate].next;
         }
         return sum;
     }

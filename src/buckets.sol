@@ -13,65 +13,70 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity >=0.5.15;
 
-
+// Buckets stores values in a map using a timestamp as a key
+// each value store a pointer the next value in a linked list
+// to improve performance/gas efficiency while iterating over all values in a timespan
 contract Buckets {
-    // linked list of future value buckets
-    // the linked list on top of a mapping is more gas efficient instead of an array
-    // the key in the map is a timestamp and acts as pointer for the linked list
-    // two mappings with two uints are more gas efficient than one mapping with one struct
-    // normalized timestamp -> value denominated in WAD
-    mapping (uint => uint) public dateBucket;
-    // normalized timestamp -> normalized timestamp
-    // pointer to the next bucket
-    mapping (uint => uint) public nextBucket;
-    
+    struct Bucket {
+        uint value;
+        uint next;
+    }
+
+    // timestamp => bucket
+    mapping (uint => Bucket) public buckets;
+
     // pointer to the first bucket and last bucket
     uint public firstBucket;
     uint public lastBucket;
 
     uint constant public NullDate = 1;
 
-    function addBucket(uint maturityDate_) internal {
+    function addBucket(uint timestamp, uint value) internal {
+        buckets[timestamp].value = value;
+
         if (firstBucket == 0) {
-            firstBucket = maturityDate_;
-            nextBucket[maturityDate_] = NullDate;
+            firstBucket = timestamp;
+            buckets[timestamp].next = NullDate;
             lastBucket = firstBucket;
             return;
         }
 
         // new bucket before first one
-        if (maturityDate_ < firstBucket) {
-            nextBucket[maturityDate_] = firstBucket;
-            firstBucket = maturityDate_;
+        if (timestamp < firstBucket) {
+            buckets[timestamp].next = firstBucket;
+            firstBucket = timestamp;
             return;
         }
 
         // find predecessor bucket by going back in one day steps
         // instead of iterating the linked list from the first bucket
-        uint prev = maturityDate_;
-        while(nextBucket[prev] == 0) {prev = prev - 1 days;}
+        uint prev = timestamp;
+        while(buckets[prev].next == 0) {prev = prev - 1 days;}
 
-        if (nextBucket[prev] == NullDate) {
-            lastBucket = maturityDate_;
+        if (buckets[prev].next == NullDate) {
+            lastBucket = timestamp;
         }
-        nextBucket[maturityDate_] = nextBucket[prev];
-        nextBucket[prev] = maturityDate_;
+        buckets[timestamp].next = buckets[prev].next;
+        buckets[prev].next = timestamp;
+
     }
 
-    function removeBucket(uint maturityDate_) internal {
+    function removeBucket(uint timestamp) internal {
         // remove from linked list
-        if (maturityDate_ != firstBucket) {
-            uint prev = maturityDate_ - 1 days;
-            while(nextBucket[prev] == 0) {prev = prev - 1 days;}
+        if (timestamp != firstBucket) {
+            uint prev = timestamp - 1 days;
+            while(buckets[prev].next == 0) {prev = prev - 1 days;}
 
-            nextBucket[prev] = nextBucket[maturityDate_];
-            nextBucket[maturityDate_] = 0;
+            buckets[prev].next = buckets[timestamp].next;
+            buckets[timestamp].next = 0;
         }
         else {
-            firstBucket = nextBucket[maturityDate_];
-            nextBucket[maturityDate_] = 0;
+            firstBucket = buckets[timestamp].next;
+            buckets[timestamp].next = 0;
         }
     }
 
-
+    function dateBucket(uint timestamp) public returns (uint) {
+        return buckets[timestamp].value;
+    }
 }

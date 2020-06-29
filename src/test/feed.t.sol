@@ -17,12 +17,13 @@ import "ds-test/test.sol";
 import "./../feed.sol";
 import "./mock/shelf.sol";
 import "./mock/pile.sol";
+import "tinlake-math/math.sol";
 
 contract Hevm {
     function warp(uint256) public;
 }
 
-contract NAVTest is DSTest {
+contract NAVTest is DSTest, Math {
     Feed public feed;
     ShelfMock shelf;
     PileMock pile;
@@ -90,13 +91,13 @@ contract NAVTest is DSTest {
         uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
       //  assertEq(feed.dateBucket(normalizedDueDate), FV);
         // FV/(1.03^2)
-        assertEq(feed.nav(), 51.960741582371777180 ether);
+        assertEq(feed.currentNAV(), 51.960741582371777180 ether);
         hevm.warp(now + 1 days);
         // FV/(1.03^1)
-        assertEq(feed.nav(), 53.519490652735515520 ether);
+        assertEq(feed.currentNAV(), 53.519490652735515520 ether);
         hevm.warp(now + 1 days);
         // FV/(1.03^0)
-        assertEq(feed.nav(), 55.125 ether);
+        assertEq(feed.currentNAV(), 55.125 ether);
     }
 
 
@@ -119,7 +120,7 @@ contract NAVTest is DSTest {
 
         // FV/(1.03^2)
         // list: [2 days]
-        assertEq(feed.nav(), 51.960741582371777180 ether);
+        assertEq(feed.currentNAV(), 51.960741582371777180 ether);
 
         // insert next bucket after last bucket
         dueDate = now + 5 days;
@@ -128,7 +129,7 @@ contract NAVTest is DSTest {
 
         // list : [2 days] -> [5 days]
         //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) ~= 107.00
-        assertEq(feed.nav(), 107.007702266903241118 ether);
+        assertEq(feed.currentNAV(), 107.007702266903241118 ether);
 
         // insert between two buckets
         // current list: [2 days] -> [5 days]
@@ -138,7 +139,7 @@ contract NAVTest is DSTest {
 
         // list : [2 days] ->[4 days] -> [5 days]
         //50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)   ~= 161.00
-        assertEq(feed.nav(), 161.006075582703631092 ether);
+        assertEq(feed.currentNAV(), 161.006075582703631092 ether);
 
         // insert at the beginning
         // current list: bucket[now+2days]-> bucket[now+4days] -> bucket[now+5days]
@@ -148,7 +149,7 @@ contract NAVTest is DSTest {
 
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         // (50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5) ~= 211.977
-        assertEq(feed.nav(), 211.977019061499360158 ether);
+        assertEq(feed.currentNAV(), 211.977019061499360158 ether);
 
         // add amount to existing bucket
         dueDate = now + 4 days;
@@ -156,7 +157,7 @@ contract NAVTest is DSTest {
         (nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         //(50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 265.97
-        assertEq(feed.nav(), 265.975392377299750133 ether);
+        assertEq(feed.currentNAV(), 265.975392377299750133 ether);
 
     }
 
@@ -167,13 +168,13 @@ contract NAVTest is DSTest {
 
         // list : [0 days] -> [1 days] -> [3 days] -> [4 days]
         //(50*1.05^1)/(1.03^0) + 50*1.05^2/(1.03^1) + 100*1.05^4/(1.03^3) + 50*1.05^5/(1.03^4)  ~= 273.95
-        assertEq(feed.nav(), 273.954279571404002939 ether);
+        assertEq(feed.currentNAV(), 273.954279571404002939 ether);
 
         hevm.warp(now + 1 days);
 
         // list : [0 days] -> [2 days] -> [3 days]
         // 50*1.05^2/(1.03^0) + 100*1.05^4/(1.03^2) + 50*1.05^5/(1.03^3) ~= 228.09
-        assertEq(feed.nav(), 228.097596081095759604 ether);
+        assertEq(feed.currentNAV(), 228.097596081095759604 ether);
     }
 
     function testTimeOverBuckets() public {
@@ -186,10 +187,10 @@ contract NAVTest is DSTest {
         (bytes32 nft_, ) = borrow(tokenId, nftValue, amount, dueDate);
 
         // 50 * 1.05^2/(1.03^2)
-        assertEq(feed.nav(), 51.960741582371777180 ether);
+        assertEq(feed.currentNAV(), 51.960741582371777180 ether);
 
         hevm.warp(now + 3 days);
-        assertEq(feed.nav(), 0);
+        assertEq(feed.currentNAV(), 0);
     }
 
 
@@ -223,7 +224,7 @@ contract NAVTest is DSTest {
 
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         //(50*1.05^1)/(1.03^1) + (50*1.05^2 - 30) /(1.03^2)  + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 237.69
-        assertEq(feed.nav(), 237.697437774648442824 ether);
+        assertEq(feed.currentNAV(), 237.697437774648442824 ether);
 
         uint FV = 25.125 ether;  // 50*1.05^2 - 30
         assertEq(feed.dateBucket(normalizedDay + 2 days), FV);
@@ -232,7 +233,7 @@ contract NAVTest is DSTest {
         assertEq(feed.dateBucket(normalizedDay + 2 days), 0);
 
         //(50*1.05^1)/(1.03^1) + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 214.014
-        assertEq(feed.nav(), 214.014650794927972953 ether);
+        assertEq(feed.currentNAV(), 214.014650794927972953 ether);
     }
 
     function testRemoveBuckets() public {
@@ -294,5 +295,15 @@ contract NAVTest is DSTest {
 
         }
         return len;
+    }
+
+    function testWriteOffs() public {
+        pile.setReturn("rates_pie", 100 ether);
+        pile.setReturn("rates_chi", ONE);
+        // default is two different write off groups both with 100 ether in debt
+        // 60% -> 40% write off
+        // 80% -> 20% write off
+        // 100 ether * 0.6 + 100 ether * 0.8 = 140 ether
+        assertEq(feed.currentNAV(), 140 ether);
     }
 }

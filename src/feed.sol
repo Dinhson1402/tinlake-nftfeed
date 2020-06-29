@@ -23,12 +23,31 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
+    WriteOff [2] public writeOffs;
+
+    struct WriteOff {
+        uint rateGroup;
+        // denominated in RAY (10^27)
+        uint percentage;
+    }
+
     uint public discountRate;
     uint public maxDays;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
         maxDays = maxDays_;
+    }
+
+    function init() public {
+        super.init();
+        // gas optimized initialization of writeOffs
+        // write off are hardcoded in the contract instead of init function params
+
+        // 60% -> 40% write off
+        writeOffs[0] = WriteOff(91, 6 * 10**26);
+        // 80% -> 20% write off
+        writeOffs[1] = WriteOff(90, 8 * 10**26);
     }
 
     function uniqueDayTimestamp(uint timestamp) public pure returns (uint) {
@@ -74,8 +93,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         }
     }
 
-    /// returns the NAV (net asset value) of the pool
-    function nav() public view returns(uint) {
+    function calcDiscount() public view returns(uint) {
         uint normalizedDay = uniqueDayTimestamp(now);
         uint sum = 0;
 
@@ -89,9 +107,21 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
 
         while(currDate != NullDate)
         {
-            sum = safeAdd(sum, rdiv(buckets[currDate].value, rpow(discountRate,  safeSub(currDate, normalizedDay), ONE)));
+            sum = safeAdd(sum, rdiv(buckets[currDate].value, rpow(discountRate, safeSub(currDate, normalizedDay), ONE)));
             currDate = buckets[currDate].next;
         }
         return sum;
+    }
+
+    /// returns the NAV (net asset value) of the pool
+    function currentNAV() public  returns(uint) {
+        uint nav_ = calcDiscount();
+
+        // add write offs to NAV
+        for (uint i = 0; i < writeOffs.length; i++) {
+            (uint pie, uint chi, ,) = pile.rates(writeOffs[i].rateGroup);
+            nav_ = safeAdd(nav_, rmul(rmul(pie, chi), writeOffs[i].percentage));
+        }
+        return nav_;
     }
 }

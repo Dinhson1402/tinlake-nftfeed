@@ -23,6 +23,9 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
+    // risk => recoveryRatePD
+    mapping (uint => uint) public recoveryRatePD;
+
     WriteOff [2] public writeOffs;
 
     struct WriteOff {
@@ -43,6 +46,10 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         super.init();
         // gas optimized initialization of writeOffs
         // write off are hardcoded in the contract instead of init function params
+
+        // risk group recoveryRatePD
+        recoveryRatePD[0] = ONE;
+        recoveryRatePD[1] = 90 * 10**25;
 
         // 60% -> 40% write off
         writeOffs[0] = WriteOff(91, 6 * 10**26);
@@ -72,7 +79,8 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         uint maturityDate_ = maturityDate[nftID_];
 
         // calculate future value FV
-        uint fv = rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount);
+        uint fv = rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount), recoveryRatePD[risk[nftID(loan)]]);
+
 
         if (buckets[maturityDate_].value == 0) {
             addBucket(maturityDate_, fv);
@@ -123,5 +131,9 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
             nav_ = safeAdd(nav_, rmul(rmul(pie, chi), writeOffs[i].percentage));
         }
         return nav_;
+    }
+
+    function dateBucket(uint timestamp) public returns (uint) {
+        return buckets[timestamp].value;
     }
 }

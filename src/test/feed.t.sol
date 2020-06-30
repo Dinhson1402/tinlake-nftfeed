@@ -42,7 +42,7 @@ contract NAVTest is DSTest, Math {
         defaultCeilingRatio = 6*10**26;                       // 60% ceiling
         defaultRate = uint(1000000564701133626865910626);     // 5 % day
         discountRate = uint(1000000342100000000000000000);    // 3 % day
-        uint maxDays = 120 days;
+        uint maxDays = 120;
 
         feed = new Feed(discountRate, maxDays);
         pile = new PileMock();
@@ -56,9 +56,13 @@ contract NAVTest is DSTest, Math {
     }
 
     function prepareDefaultNFT(uint tokenId, uint nftValue) public returns(bytes32, uint) {
+        return prepareDefaultNFT(tokenId, nftValue, 0);
+    }
+
+    function prepareDefaultNFT(uint tokenId, uint nftValue, uint risk) public returns(bytes32, uint) {
         uint loan = 1;
         bytes32 nftID = feed.nftID(mockNFTRegistry, tokenId);
-        feed.update(nftID, nftValue);
+        feed.update(nftID, nftValue, risk);
         shelf.setReturn("shelf",mockNFTRegistry, tokenId);
         pile.setReturn("debt_loan", 0);
         pile.setReturn("rates_ratePerSecond", defaultRate);
@@ -305,5 +309,41 @@ contract NAVTest is DSTest, Math {
         // 80% -> 20% write off
         // 100 ether * 0.6 + 100 ether * 0.8 = 140 ether
         assertEq(feed.currentNAV(), 140 ether);
+    }
+
+    function testRecoveryRatePD() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint dueDate = now + 2 days;
+        uint amount = 50 ether;
+        // risk 1 => RecoveryRatePD => 90%
+        uint risk = 1;
+
+        (bytes32 nftID, uint loan) = prepareDefaultNFT(tokenId, nftValue, risk);
+        feed.file("maturityDate",nftID, dueDate);
+
+        pile.setReturn("loanRates", uint(1000000564701133626865910626));
+
+        feed.borrow(loan, amount);
+
+        uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
+
+        uint FV = 49.6125 ether; // 50 * 1.05 ^ 2  * 0.9
+        assertEq(feed.dateBucket(normalizedDueDate), FV);
+    }
+
+    function testMaxBucketsBuckets() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint dueDate = now;
+        uint amount = 50 ether;
+
+        // add amounts to all 120 days buckets
+        for (uint i = 0; i < feed.maxDays(); i++) {
+            borrow(tokenId, nftValue, amount, dueDate);
+            dueDate = dueDate + 1 days;
+        }
+
+       assertTrue(amount * feed.maxDays() < feed.currentNAV());
     }
 }

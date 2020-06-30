@@ -78,8 +78,4 @@ contract Buckets {
             buckets[timestamp].next = 0;
         }
     }
-
-    function dateBucket(uint timestamp) public returns (uint) {
-        return buckets[timestamp].value;
-    }
 }

@@ -26,6 +26,9 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     // risk => recoveryRatePD
     mapping (uint => uint) public recoveryRatePD;
 
+    // loan => futureValue
+    mapping (uint => uint) public futureValue;
+
     WriteOff [2] public writeOffs;
 
     struct WriteOff {
@@ -81,6 +84,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         // calculate future value FV
         uint fv = rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount), recoveryRatePD[risk[nftID(loan)]]);
 
+        futureValue[loan] = safeAdd(futureValue[loan], fv);
 
         if (buckets[maturityDate_].value == 0) {
             addBucket(maturityDate_, fv);
@@ -94,6 +98,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     function repay(uint loan, uint amount) external auth {
         uint maturityDate_ = maturityDate[nftID(loan)];
 
+        // todo reduce bucket with loan futureValue relative to amount
         buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, amount);
 
         if (buckets[maturityDate_].value == 0) {
@@ -122,7 +127,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function currentNAV() public  returns(uint) {
+    function currentNAV() public returns(uint) {
         uint nav_ = calcDiscount();
 
         // add write offs to NAV

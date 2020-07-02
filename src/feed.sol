@@ -55,8 +55,10 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         recoveryRatePD[1] = 90 * 10**25;
 
         // 60% -> 40% write off
+        // 91 is a random sample for a rateGroup in pile for overdue loans
         writeOffs[0] = WriteOff(91, 6 * 10**26);
         // 80% -> 20% write off
+        // 90 is a random sample for a rateGroup in pile for overdue loans
         writeOffs[1] = WriteOff(90, 8 * 10**26);
     }
 
@@ -94,7 +96,6 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
     }
 
-    /// adds a new bucket to the linked-list
     function repay(uint loan, uint amount) external auth {
         uint maturityDate_ = maturityDate[nftID(loan)];
 

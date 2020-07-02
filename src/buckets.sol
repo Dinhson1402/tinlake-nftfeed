@@ -68,7 +68,7 @@ contract Buckets {
         // remove from linked list
         if (timestamp != firstBucket) {
             uint prev = timestamp - 1 days;
-            while(buckets[prev].next == 0) {prev = prev - 1 days;}
+            while(buckets[prev].next != timestamp) {prev = prev - 1 days;}
 
             buckets[prev].next = buckets[timestamp].next;
             buckets[timestamp].next = 0;

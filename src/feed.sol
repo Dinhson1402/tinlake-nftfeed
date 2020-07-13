@@ -16,10 +16,11 @@ pragma solidity >=0.5.15;
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
 import "tinlake-math/interest.sol";
+import "ds-test/test.sol";
 import "./nftfeed.sol";
 import "./buckets.sol";
 
-contract Feed is BaseNFTFeed, Interest, Buckets {
+contract Feed is BaseNFTFeed, Interest, Buckets, DSTest {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
@@ -75,8 +76,9 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
 
     /// Ceiling Implementation
     function borrow(uint loan, uint amount) external auth {
-        uint normalizedDay = uniqueDayTimestamp(now);
 
+      //  emit log_named_uint("borrow loan ", loan);
+     //   emit log_named_uint("borrow amount" , amount);
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
 
@@ -84,8 +86,8 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         uint maturityDate_ = maturityDate[nftID_];
 
         // calculate future value FV
-        uint fv = rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, normalizedDay), ONE), amount), recoveryRatePD[risk[nftID(loan)]]);
-
+        uint fv = calcFutureValue(loan, amount, maturityDate_);
+      //  emit log_named_uint("borrow fv" , fv);
         futureValue[loan] = safeAdd(futureValue[loan], fv);
 
         if (buckets[maturityDate_].value == 0) {
@@ -96,11 +98,30 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
     }
 
+    function calcFutureValue(uint loan, uint amount, uint maturityDate_) public returns(uint) {
+        return rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, uniqueDayTimestamp(now)), ONE), amount), recoveryRatePD[risk[nftID(loan)]]);
+
+    }
+
     function repay(uint loan, uint amount) external auth {
         uint maturityDate_ = maturityDate[nftID(loan)];
 
-        // todo reduce bucket with loan futureValue relative to amount
-        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, amount);
+        // remove future value for loan from bucket
+        emit log_named_uint("loan fv", futureValue[loan]);
+        assertEq(buckets[maturityDate_].value, futureValue[loan]);
+
+        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
+
+        uint debt = pile.debt(loan);
+
+        debt = safeSub(debt, amount);
+
+        if (debt != 0) {
+            // calculate new future value for loan if debt is still existing
+            uint fv = calcFutureValue(loan, debt, maturityDate_);
+            buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
+            futureValue[loan] = fv;
+        }
 
         if (buckets[maturityDate_].value == 0) {
             removeBucket(maturityDate_);
@@ -128,7 +149,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function currentNAV() public returns(uint) {
+    function currentNAV() view public returns(uint) {
         uint nav_ = calcDiscount();
 
         // add write offs to NAV
@@ -139,7 +160,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         return nav_;
     }
 
-    function dateBucket(uint timestamp) public returns (uint) {
+    function dateBucket(uint timestamp) public view returns (uint) {
         return buckets[timestamp].value;
     }
 }

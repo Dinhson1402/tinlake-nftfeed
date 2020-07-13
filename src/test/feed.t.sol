@@ -107,8 +107,9 @@ contract NAVTest is DSTest, Math {
 
 
     /// setups the following linked list
-    /// list : [1 days] -> [2 days] -> [4 days] -> [5 days]
-    //         [50 DAI] -> [50 DAI] -> [100 DAI] -> [50 DAI]
+    /// time index:      [1 days] -> [2 days] -> [4 days] -> [5 days]
+    //  principal:       [50 DAI] -> [50 DAI] -> [100 DAI] -> [50 DAI]
+    //  tokenId & loan:  [  4   ] -> [  1   ] -> [  3   ] ->  [  2  ]
     function setupLinkedListBuckets() public {
         uint nftValue = 100 ether;
         uint tokenId = 1;

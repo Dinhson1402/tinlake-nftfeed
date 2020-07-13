@@ -16,11 +16,10 @@ pragma solidity >=0.5.15;
 import "ds-note/note.sol";
 import "tinlake-auth/auth.sol";
 import "tinlake-math/interest.sol";
-import "ds-test/test.sol";
 import "./nftfeed.sol";
 import "./buckets.sol";
 
-contract Feed is BaseNFTFeed, Interest, Buckets, DSTest {
+contract Feed is BaseNFTFeed, Interest, Buckets {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
@@ -77,8 +76,6 @@ contract Feed is BaseNFTFeed, Interest, Buckets, DSTest {
     /// Ceiling Implementation
     function borrow(uint loan, uint amount) external auth {
 
-      //  emit log_named_uint("borrow loan ", loan);
-     //   emit log_named_uint("borrow amount" , amount);
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
 
@@ -87,7 +84,6 @@ contract Feed is BaseNFTFeed, Interest, Buckets, DSTest {
 
         // calculate future value FV
         uint fv = calcFutureValue(loan, amount, maturityDate_);
-      //  emit log_named_uint("borrow fv" , fv);
         futureValue[loan] = safeAdd(futureValue[loan], fv);
 
         if (buckets[maturityDate_].value == 0) {
@@ -107,9 +103,6 @@ contract Feed is BaseNFTFeed, Interest, Buckets, DSTest {
         uint maturityDate_ = maturityDate[nftID(loan)];
 
         // remove future value for loan from bucket
-        emit log_named_uint("loan fv", futureValue[loan]);
-        assertEq(buckets[maturityDate_].value, futureValue[loan]);
-
         buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
 
         uint debt = pile.debt(loan);

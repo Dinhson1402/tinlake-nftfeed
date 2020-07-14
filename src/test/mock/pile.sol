@@ -64,7 +64,6 @@ contract PileMock is Mock {
     }
 
     function rates(uint) public view returns(uint, uint, uint, uint48) {
-        return (0,0,values_return["rates_ratePerSecond"],0);
+        return (values_return["rates_pie"],values_return["rates_chi"],values_return["rates_ratePerSecond"],0);
     }
-
 }

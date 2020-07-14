@@ -159,7 +159,6 @@ contract NFTFeedTest is DSTest {
         uint maxCeiling = 50 ether;
         assertEq(nftFeed.ceiling(loan), maxCeiling);
         nftFeed.borrow(loan, maxCeiling+1);
-
     }
 
 }

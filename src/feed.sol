@@ -26,8 +26,8 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     // risk => recoveryRatePD
     mapping (uint => uint) public recoveryRatePD;
 
-    // loan => futureValue
-    mapping (uint => uint) public futureValue;
+    // nftID => futureValue
+    mapping (bytes32 => uint) public futureValue;
 
     WriteOff [2] public writeOffs;
 
@@ -84,7 +84,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
         // calculate future value FV
         uint fv = calcFutureValue(loan, amount, maturityDate_, recoveryRatePD[risk[nftID_]]);
-        futureValue[loan] = safeAdd(futureValue[loan], fv);
+        futureValue[nftID_] = safeAdd(futureValue[nftID_], fv);
 
         if (buckets[maturityDate_].value == 0) {
             addBucket(maturityDate_, fv);
@@ -101,26 +101,29 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     /// update the nft value and change the risk group
     function update(bytes32 nftID_, uint value, uint risk_) public auth {
-        require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
-
-        risk[nftID_] = risk_;
         nftValues[nftID_] = value;
 
-        uint loan = shelf.nftlookup(nftID_);
-
-        // no loan borrowed yet
-        // first loan id starts with one
-        if (futureValue[loan] == 0) {
+        // no change in risk group
+        if (risk_ == risk[nftID_]) {
             return;
         }
 
+        require(thresholdRatio[risk_] != 0, "risk group not defined in contract");
+        risk[nftID_] = risk_;
+
+        // no currencyAmount borrowed yet
+        if (futureValue[nftID_] == 0) {
+            return;
+        }
+
+        uint loan = shelf.nftlookup(nftID_);
         uint maturityDate_ = maturityDate[nftID_];
 
         // calculate future value FV
-        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
+        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[nftID_]);
 
-        futureValue[loan] = calcFutureValue(loan, pile.debt(loan), maturityDate[nftID_], recoveryRatePD[risk[nftID_]]);
-        buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, futureValue[loan]);
+        futureValue[nftID_] = calcFutureValue(loan, pile.debt(loan), maturityDate[nftID_], recoveryRatePD[risk[nftID_]]);
+        buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, futureValue[nftID_]);
     }
 
     function repay(uint loan, uint amount) external auth {
@@ -128,7 +131,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         uint maturityDate_ = maturityDate[nftID_];
 
         // remove future value for loan from bucket
-        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
+        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[nftID_]);
 
         uint debt = pile.debt(loan);
 
@@ -138,7 +141,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
             // calculate new future value for loan if debt is still existing
             uint fv = calcFutureValue(loan, debt, maturityDate_, recoveryRatePD[risk[nftID_]]);
             buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
-            futureValue[loan] = fv;
+            futureValue[nftID_] = fv;
         }
 
         if (buckets[maturityDate_].value == 0) {

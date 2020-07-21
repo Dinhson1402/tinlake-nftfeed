@@ -350,17 +350,16 @@ contract NAVTest is DSTest, Math {
 
     function testMaxBucketsBuckets() public {
         uint nftValue = 100 ether;
-        uint tokenId = 1;
         uint dueDate = now;
         uint amount = 50 ether;
 
         // add amounts to all 120 days buckets
         for (uint i = 0; i < feed.maxDays(); i++) {
-            borrow(tokenId, nftValue, amount, dueDate);
+            borrow(i, nftValue, amount, dueDate);
             dueDate = dueDate + 1 days;
         }
 
-       assertTrue(amount * feed.maxDays() < feed.currentNAV());
+        assertTrue(amount * feed.maxDays() <  feed.currentNAV());
     }
 
     function testChangeRiskGroup() public {

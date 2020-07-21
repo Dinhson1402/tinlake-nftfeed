@@ -19,7 +19,7 @@ import "tinlake-math/interest.sol";
 import "./nftfeed.sol";
 import "./buckets.sol";
 
-contract Feed is BaseNFTFeed, Interest, Buckets {
+contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
@@ -83,7 +83,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         uint maturityDate_ = maturityDate[nftID_];
 
         // calculate future value FV
-        uint fv = calcFutureValue(loan, amount, maturityDate_);
+        uint fv = calcFutureValue(loan, amount, maturityDate_, recoveryRatePD[risk[nftID_]]);
         futureValue[loan] = safeAdd(futureValue[loan], fv);
 
         if (buckets[maturityDate_].value == 0) {
@@ -94,13 +94,38 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
         buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
     }
 
-    function calcFutureValue(uint loan, uint amount, uint maturityDate_) public returns(uint) {
-        return rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, uniqueDayTimestamp(now)), ONE), amount), recoveryRatePD[risk[nftID(loan)]]);
+    function calcFutureValue(uint loan, uint amount, uint maturityDate_, uint recoveryRatePD_) public returns(uint) {
+        return rmul(rmul(rpow(pile.loanRates(loan),  safeSub(maturityDate_, uniqueDayTimestamp(now)), ONE), amount), recoveryRatePD_);
 
     }
 
+    /// update the nft value and change the risk group
+    function update(bytes32 nftID_, uint value, uint risk_) public auth {
+        require(thresholdRatio[risk_] != 0, "threshold for risk group not defined");
+
+        risk[nftID_] = risk_;
+        nftValues[nftID_] = value;
+
+        uint loan = shelf.nftlookup(nftID_);
+
+        // no loan borrowed yet
+        // first loan id starts with one
+        if (futureValue[loan] == 0) {
+            return;
+        }
+
+        uint maturityDate_ = maturityDate[nftID_];
+
+        // calculate future value FV
+        buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
+
+        futureValue[loan] = calcFutureValue(loan, pile.debt(loan), maturityDate[nftID_], recoveryRatePD[risk[nftID_]]);
+        buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, futureValue[loan]);
+    }
+
     function repay(uint loan, uint amount) external auth {
-        uint maturityDate_ = maturityDate[nftID(loan)];
+        bytes32 nftID_ = nftID(loan);
+        uint maturityDate_ = maturityDate[nftID_];
 
         // remove future value for loan from bucket
         buckets[maturityDate_].value = safeSub(buckets[maturityDate_].value, futureValue[loan]);
@@ -111,7 +136,7 @@ contract Feed is BaseNFTFeed, Interest, Buckets {
 
         if (debt != 0) {
             // calculate new future value for loan if debt is still existing
-            uint fv = calcFutureValue(loan, debt, maturityDate_);
+            uint fv = calcFutureValue(loan, debt, maturityDate_, recoveryRatePD[risk[nftID_]]);
             buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
             futureValue[loan] = fv;
         }

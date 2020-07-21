@@ -24,7 +24,7 @@ contract Hevm {
 }
 
 contract NAVTest is DSTest, Math {
-    Feed public feed;
+    NAVFeed public feed;
     ShelfMock shelf;
     PileMock pile;
     uint defaultRate;
@@ -44,7 +44,7 @@ contract NAVTest is DSTest, Math {
         discountRate = uint(1000000342100000000000000000);    // 3 % day
         uint maxDays = 120;
 
-        feed = new Feed(discountRate, maxDays);
+        feed = new NAVFeed(discountRate, maxDays);
         pile = new PileMock();
         shelf = new ShelfMock();
         feed.depend("shelf", address(shelf));
@@ -361,5 +361,38 @@ contract NAVTest is DSTest, Math {
         }
 
        assertTrue(amount * feed.maxDays() < feed.currentNAV());
+    }
+
+    function testChangeRiskGroup() public {
+        uint nftValue = 100 ether;
+        uint tokenId = 1;
+        uint loan = 1;
+        uint dueDate = now + 2 days;
+        uint amount = 50 ether;
+
+        bytes32 nftID = feed.nftID(mockNFTRegistry, tokenId);
+
+        borrow(tokenId, loan,  nftValue, amount, dueDate);
+
+        shelf.setReturn("nftlookup" ,loan);
+        pile.setReturn("debt_loan", amount);
+
+        // check FV
+        uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
+
+        uint FV = 55.125 ether; // 50 * 1.05 ^ 2 = 55.125
+        assertEq(feed.dateBucket(normalizedDueDate), FV);
+
+        uint defaultRisk = 0;
+        feed.update(nftID, nftValue, defaultRisk);
+
+        // should stay the same because risk class didn't change
+        assertEq(feed.dateBucket(normalizedDueDate), FV);
+
+        uint newRisk = 1;
+        feed.update(nftID, nftValue, newRisk);
+
+        //  55.125 * 0.9
+        assertEq(feed.dateBucket(normalizedDueDate), 49.6125 ether);
     }
 }

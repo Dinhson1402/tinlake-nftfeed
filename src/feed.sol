@@ -39,7 +39,6 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     uint public discountRate;
     uint public maxDays;
-    uint public lastNav;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -182,7 +181,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         return nav_;
     }
 
-    /// workaround for transition phase between V1 & V2
+    /// workaround for transition phase between V2 & V3
     function totalValue() public view returns(uint) {
         uint nav_ = currentNAV();
         return nav_;

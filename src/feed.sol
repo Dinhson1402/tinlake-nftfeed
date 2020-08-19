@@ -183,8 +183,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     /// workaround for transition phase between V2 & V3
     function totalValue() public view returns(uint) {
-        uint nav_ = currentNAV();
-        return nav_;
+        return currentNAV();
     }
 
     function dateBucket(uint timestamp) public view returns (uint) {

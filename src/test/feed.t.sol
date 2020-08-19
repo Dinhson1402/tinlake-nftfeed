@@ -97,12 +97,15 @@ contract NAVTest is DSTest, Math {
         assertEq(feed.dateBucket(normalizedDueDate), FV);
         // FV/(1.03^2)
         assertEq(feed.currentNAV(), 51.960741582371777180 ether);
+        assertEq(feed.totalValue(), 51.960741582371777180 ether);
         hevm.warp(now + 1 days);
         // FV/(1.03^1)
         assertEq(feed.currentNAV(), 53.519490652735515520 ether);
+        assertEq(feed.totalValue(), 53.519490652735515520 ether);
         hevm.warp(now + 1 days);
         // FV/(1.03^0)
         assertEq(feed.currentNAV(), 55.125 ether);
+        assertEq(feed.totalValue(), 55.125 ether);
     }
 
 

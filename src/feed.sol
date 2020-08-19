@@ -39,6 +39,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     uint public discountRate;
     uint public maxDays;
+    uint public lastNav;
 
     constructor (uint discountRate_, uint maxDays_) public {
         discountRate = discountRate_;
@@ -170,7 +171,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function currentNAV() view public returns(uint) {
+    function currentNAV() public view returns(uint) {
         uint nav_ = calcDiscount();
 
         // add write offs to NAV
@@ -178,6 +179,12 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
             (uint pie, uint chi, ,) = pile.rates(writeOffs[i].rateGroup);
             nav_ = safeAdd(nav_, rmul(rmul(pie, chi), writeOffs[i].percentage));
         }
+        return nav_;
+    }
+
+    /// workaround for transition phase between V1 & V2
+    function totalValue() public view returns(uint) {
+        uint nav_ = currentNAV();
         return nav_;
     }
 

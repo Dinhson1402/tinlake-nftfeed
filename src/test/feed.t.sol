@@ -44,12 +44,13 @@ contract NAVTest is DSTest, Math {
         discountRate = uint(1000000342100000000000000000);    // 3 % day
         uint maxDays = 120;
 
-        feed = new NAVFeed(discountRate, maxDays);
+        feed = new NAVFeed();
         pile = new PileMock();
         shelf = new ShelfMock();
         feed.depend("shelf", address(shelf));
         feed.depend("pile", address(pile));
-
+        feed.file("discountrate", discountRate);
+        feed.file("maxdays", maxDays);
         mockNFTRegistry = address(42);
 
         feed.init();

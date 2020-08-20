@@ -41,7 +41,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     uint public maxDays;
 
     constructor () public {
-        wards[msg.sender]=1
+        wards[msg.sender]=1;
     }
 
     function init() public {

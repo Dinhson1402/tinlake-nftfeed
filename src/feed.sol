@@ -65,13 +65,13 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     /// maturityDate is a unix timestamp
-    function file(bytes32 what, bytes32 nftID_, uint maturityDate_) public {
+    function file(bytes32 what, bytes32 nftID_, uint maturityDate_) public auth {
         if (what == "maturityDate") {
             maturityDate[nftID_] = uniqueDayTimestamp(maturityDate_);
         } else { revert("unknown config parameter");}
     }
 
-    function file(bytes32 what, uint value) public {
+    function file(bytes32 what, uint value) public auth {
         if (what == "discountrate") {
             discountRate = value;
         } else if (what == "maxdays") {

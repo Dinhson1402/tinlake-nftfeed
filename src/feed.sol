@@ -40,9 +40,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     uint public discountRate;
     uint public maxDays;
 
-    constructor (uint discountRate_, uint maxDays_) public {
-        discountRate = discountRate_;
-        maxDays = maxDays_;
+    constructor () public {
     }
 
     function init() public {
@@ -70,6 +68,14 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     function file(bytes32 what, bytes32 nftID_, uint maturityDate_) public {
         if (what == "maturityDate") {
             maturityDate[nftID_] = uniqueDayTimestamp(maturityDate_);
+        } else { revert("unknown config parameter");}
+    }
+
+    function file(bytes32 what, uint value) public {
+        if (what == "discountrate") {
+            discountRate = value;
+        } else if (what == "maxdays") {
+            maxDays = value;
         } else { revert("unknown config parameter");}
     }
 

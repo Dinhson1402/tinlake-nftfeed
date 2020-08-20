@@ -32,6 +32,7 @@ contract PileLike {
     function loanRates(uint loan) public returns (uint);
     function file(bytes32, uint, uint) public;
     function rates(uint rate) public view returns(uint, uint, uint ,uint48);
+    function total() public view returns(uint);
 }
 
 contract BaseNFTFeed is DSNote, Auth, Math {
@@ -167,5 +168,10 @@ contract BaseNFTFeed is DSNote, Auth, Math {
     function threshold(uint loan) public view returns (uint) {
         bytes32 nftID_ = nftID(loan);
         return rmul(nftValues[nftID_], thresholdRatio[risk[nftID_]]);
+    }
+
+    /// workaround for transition phase between V2 & V3
+    function totalValue() public view returns (uint) {
+        return pile.total();
     }
 }

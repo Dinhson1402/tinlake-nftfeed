@@ -170,7 +170,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     /// returns the NAV (net asset value) of the pool
-    function currentNAV() view public returns(uint) {
+    function currentNAV() public view returns(uint) {
         uint nav_ = calcDiscount();
 
         // add write offs to NAV
@@ -179,6 +179,11 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
             nav_ = safeAdd(nav_, rmul(rmul(pie, chi), writeOffs[i].percentage));
         }
         return nav_;
+    }
+
+    /// workaround for transition phase between V2 & V3
+    function totalValue() public view returns(uint) {
+        return currentNAV();
     }
 
     function dateBucket(uint timestamp) public view returns (uint) {

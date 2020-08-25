@@ -87,6 +87,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     function borrow(uint loan, uint amount) external auth returns(uint navIncrease) {
         uint navIncrease = _borrow(loan, amount);
         approximatedNAV = safeAdd(approximatedNAV, navIncrease);
+        return navIncrease;
     }
 
 
@@ -151,6 +152,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
             approximatedNAV = 0;
         }
         approximatedNAV = safeSub(approximatedNAV, navDecrease);
+        return navDecrease;
     }
 
     function _repay(uint loan, uint amount) internal returns (uint navDecrease) {
@@ -225,8 +227,9 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     function calcUpdateNAV() public returns(uint) {
-        NAV =  currentNAV();
-        return NAV;
+        // approximated NAV is updated and at this point in time 100% correct
+        approximatedNAV = currentNAV();
+        return approximatedNAV;
     }
 
     /// workaround for transition phase between V2 & V3

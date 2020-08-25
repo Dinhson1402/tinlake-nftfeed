@@ -14,7 +14,7 @@
 pragma solidity >=0.5.15;
 
 import "ds-test/test.sol";
-import "./../feed.sol";
+import "./../navfeed.sol";
 import "./mock/shelf.sol";
 import "./mock/pile.sol";
 import "tinlake-math/math.sol";

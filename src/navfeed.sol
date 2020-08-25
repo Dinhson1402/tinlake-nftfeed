@@ -81,7 +81,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     /// Ceiling Implementation
-    function borrow(uint loan, uint amount) external auth {
+    function borrow(uint loan, uint amount) external auth returns(uint NAVIncrease) {
 
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
@@ -95,10 +95,12 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
         if (buckets[maturityDate_].value == 0) {
             addBucket(maturityDate_, fv);
-            return;
+        } else {
+            buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
         }
 
-        buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
+        // return increase NAV amount
+        return calcDiscount(fv, uniqueDayTimestamp(block.timestamp), maturityDate_);
     }
 
     function calcFutureValue(uint loan, uint amount, uint maturityDate_, uint recoveryRatePD_) public returns(uint) {
@@ -133,7 +135,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, futureValue[nftID_]);
     }
 
-    function repay(uint loan, uint amount) external auth {
+    function repay(uint loan, uint amount) external auth returns (uint NAVDecrease) {
         bytes32 nftID_ = nftID(loan);
         uint maturityDate_ = maturityDate[nftID_];
 
@@ -144,9 +146,11 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
         debt = safeSub(debt, amount);
 
+        uint fv = 0;
+
         if (debt != 0) {
             // calculate new future value for loan if debt is still existing
-            uint fv = calcFutureValue(loan, debt, maturityDate_, recoveryRatePD[risk[nftID_]]);
+            fv = calcFutureValue(loan, debt, maturityDate_, recoveryRatePD[risk[nftID_]]);
             buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, fv);
             futureValue[nftID_] = fv;
         }
@@ -154,13 +158,21 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         if (buckets[maturityDate_].value == 0) {
             removeBucket(maturityDate_);
         }
+
+        // return decrease NAV amount
+        return calcDiscount(safeSub(futureValue[nftID_], fv), uniqueDayTimestamp(block.timestamp), maturityDate_);
     }
 
-    function calcDiscount() public view returns(uint) {
-        uint normalizedDay = uniqueDayTimestamp(now);
+
+    function calcDiscount(uint amount, uint normalizedBlockTimestamp, uint maturityDate) public view returns (uint result) {
+        return rdiv(amount, rpow(discountRate, safeSub(maturityDate, normalizedBlockTimestamp), ONE));
+    }
+
+    function calcTotalDiscount() public view returns(uint) {
+        uint normalizedBlockTimestamp = uniqueDayTimestamp(block.timestamp);
         uint sum = 0;
 
-        uint currDate = normalizedDay;
+        uint currDate = normalizedBlockTimestamp;
 
         if (currDate > lastBucket) {
             return 0;
@@ -170,7 +182,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
         while(currDate != NullDate)
         {
-            sum = safeAdd(sum, rdiv(buckets[currDate].value, rpow(discountRate, safeSub(currDate, normalizedDay), ONE)));
+            sum = safeAdd(sum, calcDiscount(buckets[currDate].value, normalizedBlockTimestamp, currDate));
             currDate = buckets[currDate].next;
         }
         return sum;
@@ -178,7 +190,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     /// returns the NAV (net asset value) of the pool
     function currentNAV() public view returns(uint) {
-        uint nav_ = calcDiscount();
+        uint nav_ = calcTotalDiscount();
 
         // add write offs to NAV
         for (uint i = 0; i < writeOffs.length; i++) {

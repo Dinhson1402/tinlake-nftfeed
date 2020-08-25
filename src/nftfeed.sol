@@ -125,16 +125,17 @@ contract BaseNFTFeed is DSNote, Auth, Math {
     }
 
     // method is called by the pile to check the ceiling
-    function borrow(uint loan, uint amount) external auth {
+    function borrow(uint loan, uint amount) external auth returns (uint) {
         // ceiling check uses existing loan debt
 
         borrowed[loan] = safeAdd(borrowed[loan], amount);
 
         require(initialCeiling(loan) >= borrowed[loan], "borrow-amount-too-high");
+        return amount;
     }
 
     // method is called by the pile to check the ceiling
-    function repay(uint loan, uint amount) external auth {}
+    function repay(uint loan, uint amount) external auth returns (uint) {return amount;}
 
     // borrowEvent is called by the shelf in the borrow method
     function borrowEvent(uint loan) public auth {

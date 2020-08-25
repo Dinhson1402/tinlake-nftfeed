@@ -40,6 +40,9 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     uint public discountRate;
     uint public maxDays;
 
+    // approximated NAV
+    uint public approximatedNAV;
+
     constructor () public {
         wards[msg.sender] = 1;
     }
@@ -82,6 +85,12 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
 
     /// Ceiling Implementation
     function borrow(uint loan, uint amount) external auth returns(uint navIncrease) {
+        uint navIncrease = _borrow(loan, amount);
+        approximatedNAV = safeAdd(approximatedNAV, navIncrease);
+    }
+
+
+    function _borrow(uint loan, uint amount) internal returns(uint navIncrease) {
 
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
@@ -137,6 +146,14 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     function repay(uint loan, uint amount) external auth returns (uint navDecrease) {
+        uint navDecrease = _repay(loan, amount);
+        if (navDecrease > approximatedNAV) {
+            approximatedNAV = 0;
+        }
+        approximatedNAV = safeSub(approximatedNAV, navDecrease);
+    }
+
+    function _repay(uint loan, uint amount) internal returns (uint navDecrease) {
         bytes32 nftID_ = nftID(loan);
         uint maturityDate_ = maturityDate[nftID_];
 
@@ -205,6 +222,11 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
             nav_ = safeAdd(nav_, rmul(rmul(pie, chi), writeOffs[i].percentage));
         }
         return nav_;
+    }
+
+    function calcUpdateNAV() public returns(uint) {
+        NAV =  currentNAV();
+        return NAV;
     }
 
     /// workaround for transition phase between V2 & V3

@@ -19,7 +19,9 @@ import "tinlake-math/interest.sol";
 import "./nftfeed.sol";
 import "./buckets.sol";
 
-contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
+import "ds-test/test.sol";
+
+contract NAVFeed is BaseNFTFeed, Interest, Buckets, DSTest  {
     // nftID => maturityDate
     mapping (bytes32 => uint) public maturityDate;
 
@@ -81,13 +83,14 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
     }
 
     /// Ceiling Implementation
-    function borrow(uint loan, uint amount) external auth returns(uint NAVIncrease) {
+    function borrow(uint loan, uint amount) external auth returns(uint navIncrease) {
 
         // ceiling check uses existing loan debt
         require(ceiling(loan) >= safeAdd(pile.debt(loan), amount), "borrow-amount-too-high");
-
         bytes32 nftID_ = nftID(loan);
         uint maturityDate_ = maturityDate[nftID_];
+        require(maturityDate_ > block.timestamp, "maturity-date-is-not-in-the-future");
+
 
         // calculate future value FV
         uint fv = calcFutureValue(loan, amount, maturityDate_, recoveryRatePD[risk[nftID_]]);
@@ -135,7 +138,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         buckets[maturityDate_].value = safeAdd(buckets[maturityDate_].value, futureValue[nftID_]);
     }
 
-    function repay(uint loan, uint amount) external auth returns (uint NAVDecrease) {
+    function repay(uint loan, uint amount) external auth returns (uint navDecrease) {
         bytes32 nftID_ = nftID(loan);
         uint maturityDate_ = maturityDate[nftID_];
 
@@ -147,6 +150,7 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         debt = safeSub(debt, amount);
 
         uint fv = 0;
+        uint preFutureValue = futureValue[nftID_];
 
         if (debt != 0) {
             // calculate new future value for loan if debt is still existing
@@ -160,9 +164,14 @@ contract NAVFeed is BaseNFTFeed, Interest, Buckets  {
         }
 
         // return decrease NAV amount
-        return calcDiscount(safeSub(futureValue[nftID_], fv), uniqueDayTimestamp(block.timestamp), maturityDate_);
-    }
+        if (block.timestamp < maturityDate_) {
+            return calcDiscount(safeSub(preFutureValue, fv), uniqueDayTimestamp(block.timestamp), maturityDate_);
+        }
 
+        // if a loan is overdue the portfolio value is equal to the existing debt multiplied with a write off factor
+        // todo multiply amount with write-off factor
+        return amount;
+    }
 
     function calcDiscount(uint amount, uint normalizedBlockTimestamp, uint maturityDate) public view returns (uint result) {
         return rdiv(amount, rpow(discountRate, safeSub(maturityDate, normalizedBlockTimestamp), ONE));

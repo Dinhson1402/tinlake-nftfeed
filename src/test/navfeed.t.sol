@@ -14,7 +14,7 @@
 pragma solidity >=0.5.15;
 
 import "ds-test/test.sol";
-import "./../feed.sol";
+import "./../navfeed.sol";
 import "./mock/shelf.sol";
 import "./mock/pile.sol";
 import "tinlake-math/math.sol";
@@ -69,16 +69,16 @@ contract NAVTest is DSTest, Math {
         return nftID;
     }
 
-    function borrow(uint tokenId, uint loan, uint nftValue, uint amount, uint maturityDate) internal returns(bytes32, uint) {
+    function borrow(uint tokenId, uint loan, uint nftValue, uint amount, uint maturityDate) internal returns(bytes32 nftID_, uint loan_, uint navIncrease_) {
         bytes32 nftID = prepareDefaultNFT(tokenId, nftValue);
         feed.file("maturityDate",nftID, maturityDate);
 
         pile.setReturn("loanRates", uint(1000000564701133626865910626));
-        feed.borrow(loan, amount);
-        return (nftID, loan);
+        uint navIncrease = feed.borrow(loan, amount);
+        return (nftID, loan, navIncrease);
     }
 
-    function borrow(uint tokenId, uint nftValue, uint amount, uint maturityDate) internal returns(bytes32, uint) {
+    function borrow(uint tokenId, uint nftValue, uint amount, uint maturityDate) internal returns(bytes32 nftID_, uint loan_, uint navIncrease_) {
         uint loan = 1;
         return borrow(tokenId, loan, nftValue, amount, maturityDate);
     }
@@ -89,7 +89,7 @@ contract NAVTest is DSTest, Math {
         uint dueDate = now + 2 days;
         uint amount = 50 ether;
 
-        borrow(tokenId, nftValue, amount, dueDate);
+        (,,uint NAVIncrease) = borrow(tokenId, nftValue, amount, dueDate);
 
         // check FV
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
@@ -98,6 +98,8 @@ contract NAVTest is DSTest, Math {
         assertEq(feed.dateBucket(normalizedDueDate), FV);
         // FV/(1.03^2)
         assertEq(feed.currentNAV(), 51.960741582371777180 ether);
+        // only on loan so current NAV should be equal to borrow increase
+        assertEq(feed.currentNAV(), NAVIncrease);
         assertEq(feed.totalValue(), 51.960741582371777180 ether);
         hevm.warp(now + 1 days);
         // FV/(1.03^1)
@@ -122,7 +124,7 @@ contract NAVTest is DSTest, Math {
         uint loan = 1;
 
         // insert first element
-        (bytes32 nft_, ) = borrow(tokenId,loan,  nftValue, amount, dueDate);
+        (bytes32 nft_, ,) = borrow(tokenId,loan,  nftValue, amount, dueDate);
 
         uint normalizedDueDate = feed.uniqueDayTimestamp(dueDate);
 
@@ -137,7 +139,7 @@ contract NAVTest is DSTest, Math {
         dueDate = now + 5 days;
         tokenId = 2;
         loan = 2;
-        (nft_, ) = borrow(tokenId, loan, nftValue, amount, dueDate);
+        (nft_, ,) = borrow(tokenId, loan, nftValue, amount, dueDate);
 
         // list : [2 days] -> [5 days]
         //50*1.05^2/(1.03^2) + 50*1.05^5/(1.03^5) ~= 107.00
@@ -148,7 +150,7 @@ contract NAVTest is DSTest, Math {
         dueDate = now + 4 days;
         tokenId = 3;
         loan = 3;
-        (nft_, ) = borrow(tokenId, loan, nftValue, amount, dueDate);
+        (nft_, ,) = borrow(tokenId, loan, nftValue, amount, dueDate);
 
         // list : [2 days] ->[4 days] -> [5 days]
         //50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)   ~= 161.00
@@ -159,7 +161,7 @@ contract NAVTest is DSTest, Math {
         dueDate = now + 1 days;
         tokenId = 4;
         loan = 4;
-        (nft_, ) = borrow(tokenId, loan, nftValue, amount, dueDate);
+        (nft_, ,) = borrow(tokenId, loan, nftValue, amount, dueDate);
 
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         // (50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 50*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5) ~= 211.977
@@ -169,7 +171,7 @@ contract NAVTest is DSTest, Math {
         dueDate = now + 4 days;
         tokenId = 5;
         loan = 5;
-        (nft_, ) = borrow(tokenId, loan, nftValue, amount, dueDate);
+        (nft_, ,) = borrow(tokenId, loan, nftValue, amount, dueDate);
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         //(50*1.05^1)/(1.03^1) + 50*1.05^2/(1.03^2) + 100*1.05^4/(1.03^4) + 50*1.05^5/(1.03^5)  ~= 265.97
         assertEq(feed.currentNAV(), 265.975392377299750133 ether);
@@ -232,14 +234,19 @@ contract NAVTest is DSTest, Math {
         shelf.setReturn("shelf", mockNFTRegistry, tokenId);
         uint maturityDate = feed.maturityDate(feed.nftID(loan));
 
+        uint navBefore = feed.currentNAV();
+
         // loan id doesn't matter because shelf is mocked
         // repay not full amount
-        feed.repay(loan, 30 ether);
+        uint navDecrease = feed.repay(loan, 30 ether);
+
+        emit log_named_uint("decrease val", navDecrease);
         listLen();
 
         // list : [1 days] -> [2 days] -> [4 days] -> [5 days]
         //(50*1.05^1)/(1.03^1) + (50*1.05^2) /(1.03^2)  + 100*1.05^4/(1.03^4) + (50-30)*1.05^5/(1.03^5)  ~= 232.94 eth
         assertEq(feed.currentNAV(), 232.947215966580871770 ether);
+        assertEq(feed.currentNAV(), safeSub(navBefore, navDecrease));
 
         // newFV = (loan.debt - repayment)*interest^timeLeft
         // newFV = (50-30)*1.05^5
@@ -354,7 +361,7 @@ contract NAVTest is DSTest, Math {
 
     function testMaxBucketsBuckets() public {
         uint nftValue = 100 ether;
-        uint dueDate = now;
+        uint dueDate = now + 1 days;
         uint amount = 50 ether;
 
         // add amounts to all 120 days buckets
